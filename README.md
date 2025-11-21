@@ -1,6 +1,6 @@
 # Projet NSI : Journal de Bord - Visite de la Cité des Télécoms
 
-▶️  ([Visiter !](https://pinkara.github.io/Journal-de-Bord-NSI/bzh.html)) ◀️
+▶️  ([VISITER !](https://pinkara.github.io/Journal-de-Bord-NSI/bzh.html)) ◀️
     
 ## 1. Description
 
