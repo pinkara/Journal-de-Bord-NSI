@@ -1,0 +1,1838 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visite NSI - Cité des Télécoms</title>
+    
+    <!-- 1. Inclusion de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Inclusion de Tone.js pour le son (Morse) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    
+    <!-- 3. Police Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- 4. Styles personnalisés -->
+    <style>
+        /* Appliquer la police Inter par défaut */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617; /* slate-950 */
+            color: #e2e8f0; /* slate-200 */
+        }
+
+        /* Classe pour le corps de texte principal */
+        .main-content {
+            display: none; /* Caché par défaut */
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .main-content.active {
+            display: block; /* Affiché si actif */
+        }
+
+        /* Animation d'apparition */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Animation pour les lettres Morse "fumée" - SUPPRIMÉE (remplacée par Ticker Tape) */
+        /* @keyframes smoke { ... } */
+        /* .animate-smoke { ... } */
+
+        /* Style pour la touche Morse */
+        #morse-key {
+            transition: all 0.1s ease;
+            /* Look plus "pro" avec un dégradé métallique */
+            background-image: linear-gradient(to bottom, #fde047, #eab308); /* yellow-300 to yellow-600 */
+            color: #713f12; /* yellow-900 */
+            font-weight: bold;
+            border-bottom: 5px solid #a16207; /* yellow-700 */
+            text-shadow: 0 1px 0px #fef9c3; /* yellow-100 */
+        }
+        #morse-key:active {
+            transform: translateY(3px);
+            border-bottom-width: 2px;
+            box-shadow: none; /* Enlève l'ancienne ombre */
+        }
+        
+        /* NOUVEAU: Style pour la bande télégraphique */
+        #ticker-tape {
+            background-color: #f1f5f9; /* slate-100 */
+            border-radius: 4px;
+            border: 2px solid #334155; /* slate-700 */
+        }
+
+        /* NOUVEAU: Styles pour la carte SVG et le câble */
+        #world-map .land {
+            fill: #334155; /* slate-700 */
+            stroke: #64748b; /* slate-500 */
+        }
+        #world-map .ocean {
+            fill: #0f172a; /* slate-900 */
+        }
+        #cable-path {
+            fill: none;
+            stroke: #f59e0b; /* amber-500 */
+            stroke-width: 4;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+        }
+        #world-map.animate #cable-path {
+            animation: drawCable 4s ease-out forwards;
+        }
+        @keyframes drawCable {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+        
+        /* NOUVEAU: Style pour le canvas de Fibre Optique */
+        #fiber-canvas {
+            background-color: #000;
+            border-radius: 8px;
+            border: 2px solid #1e40af; /* blue-800 */
+        }
+
+        /* Style pour le fond vert interactif */
+        #green-screen-box {
+            transition: background-image 0.3s ease-in-out;
+            /* NOUVEAU: Position relative pour les acteurs */
+            position: relative;
+            overflow: hidden; /* Cache les acteurs qui dépassent */
+        }
+        
+        /* NOUVEAU: Styles pour les acteurs du fond vert */
+        .actor-svg {
+            position: absolute;
+            /* Position de départ centrée */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none; /* Caché par défaut */
+            cursor: move; /* Indique qu'on peut déplacer */
+            user-select: none; /* Empêche la sélection de texte */
+            -webkit-user-drag: none; /* Empêche le "glisser" fantôme de l'image */
+        }
+        
+        #actor-stickman {
+            width: 120px;
+            height: 250px;
+        }
+        
+        /* NOUVEAU: IDs pour les nouveaux acteurs */
+        #actor-dino {
+            width: 250px;
+            height: 250px;
+        }
+        
+        #actor-cat {
+            width: 220px;
+            height: 220px;
+        }
+
+        #actor-dragon {
+            width: 280px;
+            height: 280px;
+        }
+
+        /* NOUVEAU: Style pour le défi Morse */
+        #morse-challenge-word {
+            position: relative; /* Pour les confettis */
+        }
+        #morse-challenge-word span {
+            transition: color 0.3s ease-in-out;
+        }
+        #morse-challenge-success {
+            display: none;
+            animation: flash 1s ease-in-out;
+        }
+        @keyframes flash {
+            0% { opacity: 0; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* NOUVEAU: Style pour les confettis */
+        @keyframes confetti-fall {
+            0% { transform: translateY(-20px); opacity: 1; }
+            100% { transform: translateY(150px); opacity: 0; }
+        }
+        .confetti {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            top: 0;
+            opacity: 0;
+            animation: confetti-fall 3s ease-out forwards;
+        }
+
+    </style>
+</head>
+<body class="min-h-screen">
+    
+    <!-- ===== EN-TÊTE ET NAVIGATION ===== -->
+    <header class="bg-slate-900 sticky top-0 z-50 shadow-lg">
+        <nav class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+            <h1 class="text-2xl font-bold text-white">Visite NSI <span class="text-sky-400">Pleumeur-Bodou</span></h1>
+            <div class="flex flex-wrap justify-center gap-2 md:gap-4 mt-4 md:mt-0">
+                <button data-target="accueil" class="nav-link px-4 py-2 rounded-lg font-semibold text-sky-300 bg-sky-800/50 hover:bg-sky-700/70 transition-colors">Accueil</button>
+                <button data-target="radome" class="nav-link px-4 py-2 rounded-lg font-semibold text-slate-300 hover:text-sky-300 hover:bg-slate-800 transition-colors">Le Radôme</button>
+                <button data-target="histoire" class="nav-link px-4 py-2 rounded-lg font-semibold text-slate-300 hover:text-sky-300 hover:bg-slate-800 transition-colors">Histoire</button>
+                <button data-target="fx" class="nav-link px-4 py-2 rounded-lg font-semibold text-slate-300 hover:text-sky-300 hover:bg-slate-800 transition-colors">Effets Spéciaux</button>
+                <button data-target="quiz" class="nav-link px-4 py-2 rounded-lg font-semibold text-slate-300 hover:text-sky-300 hover:bg-slate-800 transition-colors">Quiz</button>
+            </div>
+        </nav>
+    </header>
+
+    <!-- ===== CONTENEUR PRINCIPAL POUR LES SECTIONS ===== -->
+    <main class="container mx-auto p-4 md:p-8">
+
+        <!-- ===== SECTION 1: ACCUEIL ===== -->
+        <section id="accueil" class="main-content active text-center">
+            <div class="bg-slate-900 p-8 md:p-12 rounded-lg shadow-2xl border border-slate-700">
+                <h2 class="text-4xl md:text-6xl font-black text-white mb-4">
+                    Journal de Bord <span class="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-300">NSI</span>
+                </h2>
+                <p class="text-xl md:text-2xl text-slate-300 mb-8 max-w-3xl mx-auto">
+                    Notre visite à la Cité des Télécoms de Pleumeur-Bodou : un voyage interactif au cœur de la technologie et du cinéma.
+                </p>
+                <p class="text-slate-400">
+                    Utilisez la navigation pour explorer ce que nous avons vu, appris et expérimenté.
+                </p>
+            </div>
+        </section>
+
+        <!-- ===== SECTION 2: LE RADÔME ===== -->
+        <section id="radome" class="main-content">
+            <h2 class="text-4xl font-bold text-center mb-8 text-sky-300">Le Géant Blanc : Le Radôme</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="bg-slate-900 p-6 rounded-lg shadow-lg border border-slate-700">
+                    <h3 class="text-2xl font-bold mb-4">Un Monument Historique</h3>
+                    <p class="text-slate-300 mb-4">
+                        Impossible de le manquer ! L'énorme sphère blanche du Radôme, haute de 50 mètres, protège une antenne-cornet colossale (la PB1) de 340 tonnes. C'est un témoin incroyable de l'histoire des télécoms.
+                    </p>
+                    <h3 class="text-2xl font-bold mb-4">11 Juillet 1962 : La Mondovision</h3>
+                    <p class="text-slate-300">
+                        C'est ici, à 0h47, que l'Europe a reçu les premières images télévisées en direct des États-Unis. Elles ont été transmises via le satellite <span class="font-bold text-sky-400">Telstar</span>. C'était la naissance de la télévision mondiale !
+                    </p>
+                </div>
+                <div>
+                    <!-- Image de remplacement pour le Radôme -->
+                    <img src="https://placehold.co/600x400/0f172a/38bdf8?text=Le+Radôme+(PB1)" alt="Le Radôme de Pleumeur-Bodou" class="rounded-lg shadow-xl w-full h-auto object-cover border-4 border-slate-700">
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SECTION 3: HISTOIRE DES TÉLÉCOMS (AVEC MORSE) ===== -->
+        <section id="histoire" class="main-content">
+            <h2 class="text-4xl font-bold text-center mb-8 text-sky-300">L'Histoire des Télécoms</h2>
+            
+            <!-- Cartes des inventeurs -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                <!-- Samuel Morse -->
+                <div class="bg-slate-900 p-6 rounded-lg shadow-lg border border-slate-700 text-center">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-2">Samuel Morse</h3>
+                    <p class="text-slate-300">Inventeur du télégraphe électrique (1837) et du célèbre alphabet qui porte son nom. (Voir l'interaction ci-dessous !)</p>
+                </div>
+                <!-- Graham Bell -->
+                <div class="bg-slate-900 p-6 rounded-lg shadow-lg border border-slate-700 text-center">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-2">Graham Bell</h3>
+                    <p class="text-slate-300">Connu pour l'invention du premier téléphone pratique, révolutionnant la communication vocale à distance.</p>
+                </div>
+                <!-- Guglielmo Marconi -->
+                <div class="bg-slate-900 p-6 rounded-lg shadow-lg border border-slate-700 text-center">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-2">Guglielmo Marconi</h3>
+                    <p class="text-slate-300">Le pionnier (l'italien !) des transmissions sans fil (TSF) par ondes radio, ouvrant la voie à la radio.</p>
+                </div>
+            </div>
+
+            <!-- NOUVELLE SECTION: Câbles et Fibre -->
+            <div class="mt-12">
+                <h3 class="text-3xl font-bold text-center mb-6 text-white">Interaction : Câbles et Fibre Optique</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    
+                    <!-- Câbles Sous-Marins -->
+                    <div class="bg-slate-900 p-6 rounded-lg shadow-2xl border border-slate-700">
+                        <h4 class="text-2xl font-bold text-sky-400 mb-4 text-center">Câbles Sous-Marins</h4>
+                        <p class="text-slate-300 mb-4">Une maquette du "Léon Thévenin" montrait comment ces navires posaient les câbles au fond des océans pour connecter le monde.</p>
+                        <!-- SVG Map (Améliorée) -->
+                        <svg id="world-map" viewBox="0 0 1000 500" class="w-full rounded-lg bg-slate-800 border border-slate-600">
+                            <!-- Fond océan -->
+                            <rect class="ocean" width="1000" height="500" />
+                            <!-- Carte simplifiée (NA, SA, EU, AF, AS, AUS) -->
+                            <path class="land" d="M100,80 L350,50 L400,150 L350,250 L250,300 L200,250 L100,100 Z" /> <!-- NA -->
+                            <path class="land" d="M220,310 L350,300 L380,450 L250,480 Z" /> <!-- SA -->
+                            <path class="land" d="M420,100 L580,90 L600,200 L550,300 L450,280 L420,150 Z" /> <!-- EU -->
+                            <path class="land" d="M430,310 L560,310 L550,480 L450,470 Z" /> <!-- AF -->
+                            <path class="land" d="M600,80 L850,100 L880,350 L750,380 L620,300 Z" /> <!-- AS -->
+                            <path class="land" d="M750,390 L900,400 L880,480 L780,490 Z" /> <!-- AUS -->
+                            <!-- Le Câble (de Pleumeur-Bodou à Andover) -->
+                            <path id="cable-path" d="M430,160 C 350,180 350,130 300,130" />
+                            <!-- Points de connexion -->
+                            <circle cx="430" cy="160" r="8" fill="#f59e0b" />
+                            <circle cx="300" cy="130" r="8" fill="#f59e0b" />
+                        </svg>
+                        <button id="draw-cable-btn" class="mt-4 w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg">
+                            Tracer le câble (Telstar)
+                        </button>
+                        <!-- NOUVEAU: Info-bulle (Modifiée pour "ON AIR") -->
+                        <div id="cable-info" class="hidden mt-4 p-3 bg-slate-800 border border-slate-600 rounded-lg text-slate-200 text-sm">
+                            <div class="flex items-center mb-2">
+                                <div id="air-status-indicator" class="w-3 h-3 bg-red-500 rounded-full inline-block mr-2 transition-colors duration-500"></div>
+                                <span id="air-status-text" class="font-bold text-red-400 transition-colors duration-500">OFF AIR</span>
+                            </div>
+                            <span class="font-bold text-amber-400">Connexion Telstar (1962) :</span> De Pleumeur-Bodou (France) à Andover (USA).
+                        </div>
+                    </div>
+
+                    <!-- Fibre Optique (Refonte Snell-Descartes) -->
+                    <div class="bg-slate-900 p-6 rounded-lg shadow-2xl border border-slate-700">
+                        <h4 class="text-2xl font-bold text-sky-400 mb-4 text-center">Fibre Optique (Snell-Descartes)</h4>
+                        <p class="text-slate-300 mb-4">
+                            La lumière reste piégée par réflexion totale si l'angle d'incidence est supérieur à l'angle critique.
+                        </p>
+                        <canvas id="fiber-canvas" width="400" height="200" class="w-full rounded-lg bg-black border-2 border-blue-800"></canvas>
+                        <!-- NOUVEAU: Curseur -->
+                        <div class="mt-4">
+                            <label for="angle-slider" class="block text-sm font-medium text-slate-300">Angle d'entrée : <span id="current-angle-label" class="font-bold text-sky-400">0</span>°</label>
+                            <input id="angle-slider" type="range" min="-30" max="30" value="20" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                            <p class="text-xs text-slate-400 mt-2">
+                                Angle Critique (n1=1.47, n2=1.45) : <span id="critical-angle-label" class="font-bold text-red-400">0</span>°
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interaction Morse (Modifiée) -->
+            <div class="mt-12">
+                <h3 class="text-3xl font-bold text-center mb-6 text-white">Interaction : Le Télégraphe Morse (Réaliste)</h3>
+                <div class="bg-slate-900 p-6 rounded-lg shadow-2xl border border-slate-700 relative overflow-hidden">
+                    
+                    <!-- Conteneur pour l'animation de fumée (SUPPRIMÉ) -->
+
+                    <!-- Zone d'affichage -->
+                    <div class="relative z-10">
+                        <div class="bg-slate-800 p-4 rounded-lg mb-4 text-center">
+                            <p class="text-sm text-slate-400 mb-1">Votre message traduit :</p>
+                            <div id="morse-translation" class="text-white text-2xl font-mono h-8"></div>
+                        </div>
+
+                        <!-- NOUVEAU: Ticker Tape Canvas -->
+                        <div class="bg-slate-950 p-4 rounded-lg mb-6">
+                            <p class="text-sm text-slate-400 mb-2 text-center">Bande Télégraphique :</p>
+                            <canvas id="ticker-tape" width="500" height="50" class="w-full"></canvas>
+                        </div>
+                        
+                        <!-- Le manipulateur (Touche) -->
+                        <div class="flex justify-center gap-2">
+                            <button id="morse-key" class="bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-bold py-6 px-12 rounded-lg text-lg select-none w-full md:w-1/3">
+                                Manipulateur
+                            </button>
+                            <!-- NOUVEAU: Boutons de contrôle -->
+                            <div class="flex flex-col gap-2">
+                                <button id="morse-delete-char" title="Effacer le dernier caractère" class="w-full h-1/2 bg-slate-700 hover:bg-red-600 text-white font-bold px-4 rounded-lg text-sm">
+                                    Effacer Car.
+                                </button>
+                                <button id="morse-reset" title="Réinitialiser" class="w-full h-1/2 bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 rounded-lg text-sm">
+                                    Réinitialiser
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-center text-slate-400 mt-4 text-sm">Cliquez (ou utilisez la <span class="font-bold text-sky-400">Barre Espace</span>). Un clic court est un point (.), un clic long est un tiret (-).</p>
+                        <!-- morse-output est maintenant caché, utilisé pour la logique interne -->
+                        <div id="morse-output" class="hidden"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NOUVEAU: Aide-mémoire et Jeu Morse -->
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Aide-mémoire -->
+                <div class="bg-slate-900 p-6 rounded-lg shadow-2xl border border-slate-700">
+                    <button id="toggle-morse-codes" class="w-full bg-sky-800 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg mb-4">
+                        Afficher/Masquer les Codes
+                    </button>
+                    <div id="morse-codes" class="hidden">
+                        <pre class="text-sky-300 font-mono text-sm bg-slate-800 p-4 rounded-lg overflow-auto max-h-48">A: .-    B: -...  C: -.-.  D: -..
+E: .     F: ..-.  G: --.   H: ....
+I: ..    J: .---  K: -.-   L: .-..
+M: --    N: -.    O: ---   P: .--.
+Q: --.-  R: .-.   S: ...   T: -
+U: ..-   V: ...-  W: .--   X: -..-
+Y: -.--  Z: --..
+0: ----- 1: .---- 2: ..--- 3: ...--
+4: ....- 5: ..... 6: -.... 7: --...
+8: ---.. 9: ----.</pre>
+                    </div>
+                </div>
+
+                <!-- Défi Morse -->
+                <div class="bg-slate-900 p-6 rounded-lg shadow-2xl border border-slate-700 text-center">
+                    <h4 class="text-2xl font-bold text-white mb-4">Défi Morse</h4>
+                    <button id="morse-challenge-btn" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg mb-4">
+                        Nouveau Défi
+                    </button>
+                    <p class="text-slate-400 mb-2">Mot à écrire :</p>
+                    <div id="morse-challenge-word" class="text-3xl font-mono font-bold text-amber-300 mb-2">[Appuyez sur "Nouveau Défi"]</div>
+                    <div id="morse-challenge-success" class="p-2 bg-green-700 text-white rounded-lg font-semibold">
+                        Défi Réussi !
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ===== SECTION 4: EFFETS SPÉCIAUX (FX) ===== -->
+        <section id="fx" class="main-content">
+            <h2 class="text-4xl font-bold text-center mb-8 text-sky-300">Effets Spéciaux : Crevez l'Écran !</h2>
+            <p class="text-center text-lg text-slate-300 mb-8 max-w-2xl mx-auto">
+                Nous avons exploré l'expo "Effets Spéciaux" et découvert les secrets du cinéma, de Georges Méliès aux technologies modernes.
+            </p>
+
+            <!-- Interaction Fond Vert -->
+            <div class="bg-slate-900 p-6 rounded-lg shadow-2xl border border-slate-700 mb-8">
+                <h3 class="text-3xl font-bold text-center mb-6 text-white">Interaction : Le Fond Vert (Chroma Key)</h3>
+                
+                <!-- Le "Fond Vert" (Modifié) -->
+                <div id="green-screen-box" class="bg-green-500 w-full h-64 md:h-80 rounded-lg flex justify-center items-center shadow-inner mb-6" style="background-image: none; background-size: cover; background-position: center;">
+                    <!-- Acteur "Bonhomme" (SUPPRIMÉ) -->
+                    <!-- <svg id="actor-stickman" ... </svg> -->
+                    
+                    <!-- NOUVEAU: Acteur "Dino" (dino.svg) -->
+                    <svg id="actor-dragon" version="1.0" xmlns="http://www.w3.org/2000/svg" width="1049.755006pt" height="1614.521396pt" viewBox="0 0 1049.755006 1614.521396" class="actor-svg" fill="#fff" stroke="#333" stroke-width="2" preserveAspectRatio="xMidYMid meet">
+                        <g transform="translate(-649.122165,1819.918898) scale(0.100000,-0.100000)">
+<path d="M11815 18176 c-31 -31 -53 -77 -115 -231 -151 -381 -334 -640 -601
+-847 -152 -118 -252 -178 -421 -253 -46 -21 -146 -68 -223 -105 -173 -83 -241
+-108 -256 -93 -44 44 175 432 348 613 103 108 98 120 -28 79 -155 -51 -376
+-179 -554 -322 -108 -87 -263 -239 -318 -312 -82 -110 -98 -115 -139 -37 -58
+107 -74 356 -42 617 23 186 24 622 1 723 -47 204 -115 183 -157 -48 -57 -318
+-134 -572 -249 -821 -40 -87 -118 -301 -140 -386 -7 -24 -12 -123 -12 -222 -1
+-161 -3 -181 -19 -196 -10 -9 -69 -34 -130 -55 -183 -63 -297 -146 -321 -233
+-12 -47 -5 -152 14 -195 19 -45 68 -123 126 -202 l54 -74 -20 -36 c-17 -29
+-135 -144 -273 -265 -117 -103 -280 -196 -378 -215 -31 -6 -79 -18 -106 -26
+-79 -23 -145 -15 -168 20 -13 18 -9 91 8 156 27 107 -1 142 -79 97 -54 -32
+-148 -131 -176 -185 -85 -166 -57 -351 72 -486 58 -61 99 -78 125 -53 14 14
+14 21 2 59 -8 24 -17 48 -20 53 -4 6 -19 40 -34 77 -27 68 -33 113 -17 122 14
+9 169 -173 197 -230 29 -59 26 -89 -15 -132 -19 -21 -42 -32 -91 -41 -120 -23
+-189 -43 -194 -57 -3 -7 9 -62 25 -121 17 -60 34 -128 38 -153 6 -45 7 -45 49
+-48 23 -2 103 4 177 12 240 28 529 19 740 -23 250 -51 352 -85 460 -156 48
+-32 76 -44 91 -41 12 3 67 59 122 123 209 244 312 293 517 245 206 -50 241
+-54 415 -55 195 0 284 15 425 74 208 86 380 281 459 520 76 232 26 564 -103
+677 -32 28 -70 48 -140 73 -60 21 -71 31 -71 70 0 41 34 64 96 64 45 0 58 4
+81 28 28 27 28 28 34 200 4 96 12 188 19 207 25 68 100 167 233 305 344 359
+537 680 683 1135 65 200 112 469 99 553 -13 75 -55 98 -100 53z m-1261 -2028
+c8 -33 5 -43 -25 -94 -19 -31 -65 -84 -103 -118 -146 -130 -132 -107 -139
+-226 -10 -185 -55 -295 -152 -373 -84 -67 -123 -79 -260 -79 -136 0 -257 27
+-367 83 l-41 21 6 51 c9 70 73 232 109 273 41 46 78 67 186 103 52 17 117 41
+145 52 29 12 75 30 102 41 151 61 301 152 440 267 61 51 86 51 99 -1z m-1802
+-1190 c24 -36 29 -99 17 -209 -23 -230 -76 -293 -244 -293 -130 0 -214 35
+-250 104 -54 104 53 257 243 351 122 59 143 67 188 68 22 1 36 -6 46 -21z"/>
+<path d="M9939 15742 c-56 -36 -66 -49 -83 -106 -22 -71 -57 -109 -138 -151
+-40 -20 -80 -42 -88 -49 -8 -7 -23 -16 -33 -19 -79 -29 159 -60 288 -38 156
+26 240 142 216 295 -10 57 -46 96 -90 96 -15 0 -47 -13 -72 -28z"/>
+<path d="M8555 14874 c-101 -67 -134 -101 -166 -171 -36 -78 -38 -135 -7 -157
+30 -21 56 -20 124 5 100 38 186 151 199 264 13 112 -40 132 -150 59z"/>
+<path d="M16825 17640 c-128 -18 -204 -33 -295 -56 -109 -29 -363 -111 -400
+-131 -14 -7 -28 -13 -32 -13 -4 0 -33 -12 -65 -26 -311 -138 -662 -369 -931
+-614 -317 -289 -651 -731 -901 -1195 -24 -44 -49 -89 -56 -100 -7 -11 -85
+-144 -175 -295 -548 -925 -832 -1323 -1144 -1599 -185 -164 -340 -275 -527
+-379 -98 -54 -403 -206 -439 -219 -61 -21 -179 -43 -235 -43 -30 0 -56 -4 -59
+-9 -6 -9 14 -73 41 -131 41 -89 131 -158 228 -175 105 -19 267 -71 349 -112
+28 -14 98 -56 156 -94 59 -38 111 -69 116 -69 5 0 39 30 74 66 186 188 435
+284 735 284 239 0 454 -65 655 -198 94 -63 258 -210 374 -336 104 -114 116
+-114 116 -5 0 157 30 357 75 494 114 348 345 605 650 722 115 44 137 50 268
+69 103 16 133 16 240 6 228 -23 367 -60 610 -163 193 -82 195 -77 59 130 -106
+161 -173 306 -208 446 -27 110 -24 354 5 465 89 337 359 600 782 760 46 18 89
+37 94 42 18 17 -25 37 -175 84 -405 127 -461 146 -545 184 -11 5 -53 23 -94
+40 -341 146 -587 393 -667 670 -26 89 -26 280 0 365 45 149 133 283 291 441
+263 265 630 485 1094 656 35 12 64 28 65 33 1 13 -54 15 -129 5z m-2505 -2424
+c0 -8 -5 -36 -10 -63 -47 -224 -106 -577 -120 -718 -30 -311 -40 -785 -20
+-1000 19 -204 23 -295 13 -295 -6 0 -13 8 -16 18 -3 9 -14 40 -24 67 -18 47
+-39 129 -63 255 -17 83 -40 353 -40 458 0 156 27 437 56 582 44 217 147 579
+195 683 13 29 29 36 29 13z"/>
+<path d="M11352 16309 c-115 -9 -178 -26 -244 -68 -82 -52 -122 -161 -81 -221
+9 -14 42 -52 74 -86 62 -65 152 -198 199 -292 29 -59 84 -214 113 -322 48
+-173 64 -696 32 -1035 -19 -202 -43 -421 -56 -505 -21 -140 -40 -257 -49 -295
+-8 -39 -28 -140 -49 -260 -6 -33 -22 -121 -36 -195 -14 -74 -29 -164 -34 -200
+-5 -36 -18 -126 -29 -200 -41 -281 -47 -361 -47 -670 1 -293 8 -420 41 -690
+27 -225 53 -355 149 -750 25 -107 55 -229 65 -270 39 -163 169 -667 182 -705
+7 -22 17 -40 21 -40 9 0 46 84 72 160 7 22 21 78 30 125 41 210 68 306 116
+408 27 57 49 107 49 111 0 4 -26 49 -58 101 -32 52 -78 131 -102 175 -24 44
+-54 100 -67 124 -53 96 -103 287 -103 391 0 105 30 102 45 -5 11 -69 69 -234
+119 -335 55 -110 183 -312 259 -409 92 -116 219 -237 352 -336 145 -107 175
+-134 175 -155 0 -8 -41 -60 -91 -115 -107 -118 -156 -186 -353 -485 -198 -301
+-277 -380 -376 -380 -24 0 -82 16 -141 39 -205 81 -318 90 -454 36 -121 -48
+-215 -126 -303 -252 -57 -82 -172 -343 -172 -390 0 -13 6 -23 15 -23 7 0 76
+31 152 69 185 93 269 112 297 69 19 -31 -8 -137 -67 -259 -30 -63 -67 -152
+-81 -197 -32 -99 -45 -205 -27 -217 8 -4 70 31 157 90 189 126 255 157 315
+149 61 -8 72 -28 71 -128 -1 -85 -14 -139 -94 -365 -58 -166 -57 -166 162 -3
+207 155 292 248 360 396 20 44 43 108 49 141 7 33 17 74 22 90 5 17 14 49 19
+72 9 36 20 49 68 82 89 60 218 124 322 161 237 82 604 291 825 469 245 197
+398 403 426 572 20 122 -3 253 -83 468 -124 332 -449 926 -695 1270 -41 57
+-81 120 -88 140 -7 20 -16 86 -19 146 -9 188 -62 381 -148 545 -114 216 -218
+323 -393 406 -96 45 -276 108 -338 119 -64 10 -171 72 -225 129 -97 103 -128
+200 -119 381 8 154 27 218 79 268 54 51 95 51 174 -2 33 -22 72 -53 88 -70 17
+-17 35 -31 42 -31 20 0 27 62 21 179 -7 149 -42 227 -161 360 -66 74 -73 111
+-30 152 21 20 36 24 87 24 118 0 234 -83 297 -212 39 -81 56 -74 54 25 -2 101
+-38 223 -104 357 -70 143 -137 228 -246 310 -83 64 -91 79 -79 141 20 108 155
+98 301 -23 33 -28 78 -76 98 -108 21 -31 43 -54 49 -52 38 12 28 177 -20 311
+-59 167 -124 249 -303 385 -65 50 -126 101 -135 113 -40 58 1 135 84 158 127
+34 385 -105 480 -260 40 -65 61 -66 61 -2 0 94 -51 231 -134 361 -111 173
+-225 254 -471 337 -44 14 -92 33 -107 42 -53 31 -65 111 -23 160 41 49 173
+132 209 132 52 0 138 -33 219 -83 41 -26 77 -47 81 -47 21 0 -2 37 -58 94 -54
+54 -84 74 -178 119 -62 30 -131 59 -153 65 -40 12 -207 33 -235 31 -8 -1 -61
+-5 -118 -10z"/>
+<path d="M11070 14318 c-140 -153 -338 -280 -530 -340 -36 -11 -82 -26 -103
+-34 -20 -8 -57 -14 -82 -14 -24 0 -46 -4 -50 -9 -10 -17 8 -19 75 -11 236 30
+442 129 621 298 70 65 139 148 139 166 0 15 -19 -1 -70 -56z"/>
+<path d="M9586 14100 c-97 -57 -230 -163 -271 -217 -65 -85 -95 -236 -57 -283
+l19 -23 82 22 c46 12 85 20 89 17 10 -11 -18 -50 -94 -131 -44 -47 -87 -107
+-106 -145 -32 -64 -33 -67 -32 -205 0 -146 16 -220 45 -220 8 0 50 72 99 170
+47 94 97 186 111 205 32 42 60 102 106 229 79 219 92 275 113 472 10 101 3
+149 -22 149 -8 0 -44 -18 -82 -40z"/>
+<path d="M7895 14066 c-19 -13 -19 -15 -1 -57 73 -172 116 -227 235 -307 104
+-69 159 -85 291 -86 107 -1 120 1 185 30 39 16 113 57 165 91 53 33 104 62
+115 64 32 7 28 33 -11 71 -64 65 -227 125 -464 172 -187 37 -478 49 -515 22z"/>
+<path d="M10861 13044 c-68 -37 -236 -90 -357 -113 -101 -19 -299 -14 -411 10
+-54 11 -110 23 -126 26 -15 3 -30 9 -33 14 -3 5 -13 9 -22 9 -9 0 -30 7 -46
+15 -34 18 -36 18 -36 5 0 -5 6 -10 14 -10 7 0 19 -7 26 -15 7 -8 23 -15 36
+-15 12 0 25 -4 29 -9 3 -5 20 -13 37 -17 18 -3 39 -10 48 -14 83 -42 372 -54
+526 -21 163 34 374 122 374 155 0 10 -12 6 -59 -20z"/>
+<path d="M9085 12490 c-11 -5 -45 -16 -75 -24 -85 -24 -260 -76 -310 -93 -73
+-24 -198 -94 -265 -150 -174 -143 -265 -351 -286 -653 -19 -278 -6 -241 -124
+-355 -141 -137 -267 -289 -446 -535 -123 -169 -146 -204 -192 -297 -53 -104
+-63 -130 -96 -239 l-31 -101 -59 -37 c-79 -48 -165 -145 -206 -231 -96 -201
+-90 -354 34 -815 32 -119 57 -252 97 -515 20 -133 49 -215 109 -305 63 -95
+183 -206 259 -240 101 -45 295 -81 326 -60 17 11 19 9 -78 79 -86 63 -196 186
+-223 249 -25 57 -36 156 -20 167 7 4 20 1 29 -7 24 -20 68 -38 121 -49 114
+-23 208 -39 234 -39 37 0 45 25 18 58 -64 82 -133 229 -146 313 -9 61 6 73 95
+73 57 -1 81 -7 145 -38 43 -20 86 -36 97 -36 18 0 20 4 14 48 -9 58 -51 193
+-77 245 -44 85 -171 178 -266 193 -45 7 -126 -18 -249 -77 -83 -40 -118 -47
+-129 -28 -18 28 120 91 301 138 42 11 42 11 48 69 51 450 118 737 270 1167 94
+265 398 899 540 1124 13 20 51 86 86 146 105 183 316 529 409 670 93 141 111
+213 46 185z"/>
+<path d="M9342 12099 c4 -13 36 -31 118 -67 97 -43 145 -58 297 -92 67 -15
+348 -14 433 1 105 19 270 68 270 81 0 11 -24 10 -57 -3 -34 -13 -90 -25 -208
+-45 -155 -27 -396 -19 -530 18 -85 23 -141 40 -170 53 -16 7 -52 20 -78 30
+-26 10 -50 22 -53 26 -8 13 -26 11 -22 -2z"/>
+<path d="M8920 11164 c0 -18 153 -99 240 -127 326 -106 599 -124 895 -61 101
+22 175 46 175 57 0 10 -27 7 -130 -18 -224 -54 -552 -55 -750 -3 -41 11 -91
+23 -110 27 -45 10 -212 76 -269 107 -47 26 -51 27 -51 18z"/>
+<path d="M10356 11094 c-28 -13 -58 -24 -67 -24 -20 0 -35 -18 -24 -28 3 -4
+20 1 36 11 17 9 37 17 44 17 17 0 75 33 75 43 0 11 -11 8 -64 -19z"/>
+<path d="M8650 10125 c0 -2 20 -18 46 -35 115 -80 309 -156 509 -201 87 -20
+129 -23 320 -24 147 0 240 4 280 13 33 8 92 20 130 28 67 15 199 55 294 89 87
+32 217 99 198 103 -10 2 -42 -7 -70 -21 -29 -13 -74 -32 -102 -42 -27 -9 -59
+-21 -70 -25 -11 -5 -49 -16 -85 -25 -36 -9 -78 -20 -95 -25 -148 -42 -292 -60
+-489 -60 -292 0 -511 53 -774 187 -85 44 -92 46 -92 38z"/>
+<path d="M11657 9505 c-29 -20 -37 -32 -37 -55 0 -55 104 -426 126 -450 12
+-12 19 -9 55 25 38 38 207 282 243 352 9 18 16 41 16 53 0 47 -149 100 -281
+100 -74 0 -89 -3 -122 -25z"/>
+<path d="M8260 9161 c0 -19 179 -175 275 -239 221 -147 396 -213 700 -264 104
+-17 427 -17 520 1 288 53 498 132 735 277 109 66 145 94 120 94 -6 0 -24 -8
+-38 -19 -61 -42 -244 -137 -343 -178 -406 -169 -828 -197 -1249 -84 -64 18
+-119 36 -126 44 -4 4 -13 7 -21 7 -13 0 -178 78 -218 103 -79 49 -221 155
+-277 206 -66 61 -78 69 -78 52z"/>
+<path d="M12538 8429 c-10 -5 -95 -39 -190 -75 -95 -35 -180 -72 -190 -81 -30
+-27 -24 -99 25 -313 50 -217 84 -419 119 -710 17 -139 17 -575 0 -705 -14
+-109 -38 -249 -52 -305 -5 -19 -16 -64 -25 -100 -77 -308 -235 -638 -477
+-1000 -176 -262 -244 -395 -289 -565 -29 -110 -32 -134 -32 -275 -1 -167 12
+-242 61 -375 77 -210 202 -357 476 -563 150 -112 186 -152 193 -214 18 -159
+-120 -262 -290 -216 -39 10 -50 9 -114 -17 -57 -22 -83 -27 -126 -23 -70 6
+-106 32 -145 106 -32 60 -55 79 -76 64 -6 -4 -54 -25 -106 -45 -332 -129 -536
+-348 -661 -706 -29 -84 -17 -92 57 -43 99 65 249 142 336 172 108 36 234 63
+278 58 45 -4 49 -27 20 -106 -68 -178 -65 -264 7 -214 143 100 439 240 533
+254 23 3 25 0 24 -32 -1 -19 -9 -93 -18 -165 -26 -196 -11 -221 77 -131 149
+152 447 277 772 322 253 36 606 10 874 -64 136 -38 145 -57 -177 367 -229 302
+-293 402 -370 581 -81 189 -74 221 147 665 216 432 248 511 310 750 49 190 56
+240 55 420 0 201 -17 328 -73 545 -67 261 -172 557 -275 774 -30 62 -165 350
+-228 484 -36 76 -150 279 -216 383 -33 52 -108 192 -167 310 -59 118 -129 256
+-156 307 -26 51 -53 116 -59 143 -12 47 -11 52 11 76 38 40 94 63 187 77 64 9
+88 16 90 28 4 19 -42 125 -65 150 -18 20 -49 23 -75 7z"/>
+<path d="M12590 7875 c-15 -18 -5 -42 101 -260 69 -142 120 -225 139 -225 5 0
+30 14 55 32 39 28 54 32 108 33 34 0 77 -4 95 -8 46 -12 42 3 -25 92 -116 155
+-181 210 -365 310 -84 46 -90 47 -108 26z"/>
+<path d="M8460 7592 c0 -22 332 -202 372 -202 8 0 18 -3 22 -7 14 -15 209 -71
+338 -98 177 -37 524 -39 670 -5 24 5 81 19 128 29 165 38 265 72 406 142 56
+27 105 49 108 49 15 0 120 73 110 77 -5 2 -57 -21 -115 -50 -57 -30 -113 -57
+-124 -60 -11 -3 -38 -13 -60 -22 -137 -54 -306 -101 -474 -132 -121 -22 -445
+-25 -571 -4 -159 25 -344 74 -461 121 -75 30 -256 118 -301 147 -41 25 -48 27
+-48 15z"/>
+<path d="M13075 6958 c-3 -8 16 -61 43 -119 27 -57 68 -143 90 -192 23 -48 48
+-90 57 -93 8 -4 56 3 105 15 97 23 151 26 180 11 62 -33 -14 93 -111 186 -74
+70 -144 117 -244 161 -96 43 -114 47 -120 31z"/>
+<path d="M14085 6780 c-49 -4 -109 -13 -132 -20 -54 -16 -57 -40 -7 -40 74 0
+405 -76 599 -137 167 -53 193 -62 310 -108 295 -116 540 -272 746 -475 279
+-275 406 -566 371 -848 -14 -110 -27 -153 -78 -255 -84 -167 -190 -291 -243
+-285 -23 3 -27 9 -31 48 -3 31 -10 45 -20 45 -8 0 -38 -38 -66 -85 -29 -47
+-68 -97 -88 -111 -37 -27 -141 -54 -169 -43 -15 6 -67 101 -67 123 0 26 -27
+17 -107 -37 -125 -84 -144 -92 -211 -92 -66 0 -109 12 -163 46 -20 12 -47 24
+-60 26 -63 9 -10 132 84 195 27 18 73 40 103 50 60 19 68 30 27 38 -16 4 -47
+10 -70 16 -57 12 -274 11 -331 -2 -84 -20 -146 -42 -184 -66 -57 -35 -77 -30
+-168 42 -135 109 -214 163 -291 201 -89 44 -168 69 -180 57 -5 -5 -14 -45 -19
+-89 -18 -158 -76 -396 -132 -544 -44 -115 -167 -378 -285 -613 -69 -137 -113
+-236 -111 -250 3 -20 10 -23 73 -28 39 -3 144 -15 235 -26 235 -30 466 -43
+760 -43 429 0 818 49 1148 144 710 205 1161 694 1212 1313 24 298 -50 583
+-228 873 -305 498 -860 827 -1602 950 -88 15 -401 40 -475 38 -33 0 -100 -4
+-150 -8z"/>
+<path d="M7292 6539 c-5 -13 -17 -42 -27 -64 -27 -65 -94 -272 -120 -375 -148
+-591 -101 -1064 155 -1558 170 -327 403 -611 735 -897 161 -138 216 -211 230
+-306 10 -70 -8 -121 -61 -168 -109 -96 -256 -95 -372 3 -24 20 -51 36 -59 36
+-8 0 -33 -16 -56 -36 -67 -57 -171 -104 -230 -104 -44 0 -54 4 -82 34 -19 20
+-36 51 -40 73 -13 72 -16 73 -170 21 -295 -100 -496 -282 -655 -596 -52 -101
+-60 -132 -35 -132 8 0 80 33 159 74 170 87 289 127 428 141 79 8 118 1 118
+-22 0 -9 -16 -69 -35 -135 -20 -65 -33 -123 -30 -128 11 -18 33 -10 142 50 59
+33 123 65 142 71 19 7 55 25 80 41 83 53 358 125 383 100 15 -15 -3 -101 -36
+-174 -14 -31 -31 -88 -38 -127 -18 -104 -10 -106 104 -39 183 109 317 167 508
+218 70 19 208 39 353 51 218 18 479 -8 672 -66 199 -60 204 -61 190 -12 -19
+62 -115 233 -215 383 -170 256 -185 291 -185 439 0 88 3 107 27 157 26 55 88
+147 136 200 21 23 23 30 12 43 -7 8 -16 15 -20 15 -11 0 -304 176 -443 265
+-491 316 -863 690 -1147 1154 -227 370 -363 728 -450 1181 -38 195 -52 234
+-68 189z"/>
+<path d="M11035 6298 c-113 -87 -322 -218 -440 -276 -196 -97 -470 -182 -720
+-224 -109 -18 -566 -18 -655 0 -312 64 -519 132 -704 234 -38 21 -70 38 -72
+38 -2 0 -29 16 -59 36 -67 42 -97 41 -34 -1 24 -17 51 -33 59 -38 8 -4 38 -21
+65 -37 48 -29 191 -100 265 -133 59 -26 241 -85 315 -102 39 -9 90 -20 114
+-26 24 -5 120 -17 215 -25 192 -17 347 -9 556 27 285 51 627 179 855 322 146
+92 351 257 334 270 -2 2 -44 -28 -94 -65z"/>
+<path d="M13555 5758 c-3 -7 9 -67 25 -133 32 -125 70 -353 70 -418 0 -22 5
+-40 13 -43 8 -3 40 10 73 29 155 88 239 117 337 117 69 0 128 -20 156 -54 19
+-22 32 -10 24 22 -13 53 -48 108 -117 180 -130 137 -247 206 -446 263 -41 11
+-82 27 -91 35 -19 17 -38 18 -44 2z"/>
+<path d="M11270 5009 c-360 -289 -808 -479 -1275 -541 -126 -16 -427 -16 -565
+0 -232 28 -486 102 -698 204 -46 22 -86 37 -89 34 -4 -3 -4 -7 -2 -9 42 -26
+187 -99 254 -128 108 -46 323 -106 460 -128 191 -31 537 -31 730 -1 383 62
+752 214 1048 432 45 34 84 64 87 67 3 3 38 32 78 65 39 32 72 60 72 62 0 15
+-36 -5 -100 -57z"/>
+</g>
+                    </svg>
+                    
+                    <!-- NOUVEAU: Acteur "Bat-Cat" (cat.svg) -->
+                    <svg id="actor-cat"  xmlns="http://www.w3.org/2000/svg"
+ width="1053.217649pt" height="1141.926238pt" viewBox="0 0 1053.217649 1141.926238"
+ preserveAspectRatio="xMidYMid meet" class="actor-svg" fill="#fff" stroke="#333" stroke-width="2">
+                        <g transform="translate(-474.070001,1584.647568) scale(0.100000,-0.100000)">
+<path d="M7414 15829 c-18 -20 -19 -38 -18 -318 0 -163 6 -345 13 -406 38
+-345 97 -627 189 -911 59 -180 59 -159 -4 -255 -102 -154 -204 -383 -238 -534
+-32 -144 -35 -160 -42 -240 -5 -67 -4 -83 9 -93 16 -14 47 -21 272 -67 452
+-93 737 -154 1000 -215 143 -33 294 -63 335 -66 72 -6 79 -5 150 29 161 76
+395 341 539 608 61 113 151 320 171 394 5 17 16 55 24 85 54 186 99 512 110
+795 4 77 9 199 12 272 7 170 5 173 -85 173 -95 0 -396 -34 -517 -59 -55 -11
+-153 -34 -217 -51 -64 -16 -124 -30 -134 -30 -10 0 -97 57 -193 126 -266 192
+-616 416 -825 529 -291 158 -454 240 -501 249 -23 5 -35 2 -50 -15z m299 -426
+c44 -29 96 -69 313 -245 173 -141 424 -397 424 -433 0 -6 -26 -29 -57 -50 -99
+-65 -336 -251 -414 -323 -131 -122 -146 -133 -156 -119 -21 27 -79 260 -122
+487 -44 229 -80 667 -58 698 13 17 22 15 70 -15z m1203 -1834 c208 -78 262
+-332 104 -486 -80 -79 -167 -100 -271 -69 -145 44 -239 163 -239 301 1 119 48
+187 174 246 76 36 150 38 232 8z"/>
+<path d="M12541 15819 c-29 -12 -153 -72 -275 -134 -345 -175 -671 -381 -1026
+-648 -63 -48 -122 -87 -130 -87 -8 0 -69 14 -135 30 -219 56 -531 100 -703
+100 -86 0 -104 -3 -109 -16 -10 -28 16 -611 37 -811 37 -361 83 -553 190 -797
+93 -212 210 -385 365 -542 113 -113 219 -189 282 -199 41 -6 189 12 323 41 36
+8 119 26 185 40 111 23 273 60 370 84 71 18 227 51 355 75 69 14 157 32 195
+40 39 9 90 20 115 25 25 5 74 17 110 27 l65 18 3 55 c6 102 -52 337 -124 506
+-38 90 -122 243 -177 322 -35 52 -34 68 17 222 45 136 110 395 140 555 54 288
+66 429 66 768 0 215 -4 299 -13 317 -16 33 -56 36 -126 9z m-131 -415 c23 -60
+3 -456 -34 -665 -44 -249 -113 -502 -138 -507 -8 -1 -64 41 -124 94 -141 124
+-249 208 -389 299 -129 86 -140 96 -127 122 23 42 289 293 482 454 295 247
+310 256 330 203z m-996 -1847 c235 -108 232 -396 -6 -518 -87 -45 -242 -26
+-313 38 -60 53 -105 153 -105 229 0 61 40 145 91 195 93 91 213 111 333 56z"/>
+<path d="M6175 13138 c-11 -6 -23 -16 -27 -22 -13 -18 -9 -73 6 -85 7 -6 91
+-20 187 -30 260 -30 343 -39 464 -56 198 -27 202 -28 209 -17 9 14 12 99 4
+107 -12 12 -178 42 -363 66 -38 4 -142 18 -230 29 -183 23 -222 24 -250 8z"/>
+<path d="M13625 13129 c-49 -4 -126 -13 -170 -19 -44 -6 -129 -18 -190 -26
+-60 -8 -139 -21 -175 -28 -61 -11 -65 -14 -79 -49 -11 -30 -11 -43 -2 -63 11
+-25 15 -26 69 -21 31 3 107 13 167 21 292 43 405 56 486 56 68 0 126 17 148
+44 21 26 9 60 -29 78 -37 19 -76 20 -225 7z"/>
+<path d="M7313 12885 c-9 -25 4 -272 16 -294 9 -17 36 -18 418 -24 224 -4 505
+-12 623 -18 574 -28 612 -28 618 4 4 20 11 18 -158 52 -74 15 -157 33 -185 41
+-43 11 -132 29 -375 75 -30 6 -82 16 -115 24 -33 7 -98 20 -145 29 -151 29
+-184 35 -260 50 -160 32 -337 64 -383 71 -39 5 -48 3 -54 -10z"/>
+<path d="M12705 12884 c-5 -2 -118 -22 -249 -44 -250 -42 -669 -124 -722 -141
+-31 -9 -71 -17 -234 -44 -203 -34 -392 -73 -404 -85 -5 -5 -6 -16 -2 -26 6
+-16 28 -16 284 -11 152 3 351 11 442 17 91 6 328 11 527 11 297 0 364 3 373
+14 16 19 38 189 32 245 -6 58 -18 76 -47 64z"/>
+<path d="M9890 12843 c-104 -4 -124 -14 -135 -64 -19 -84 76 -181 229 -233 17
+-6 18 -14 13 -69 -21 -220 -136 -340 -311 -324 -70 6 -93 21 -163 108 -65 80
+-88 92 -115 59 -27 -33 -17 -78 33 -152 43 -63 120 -126 187 -152 64 -24 166
+-21 228 8 60 28 119 79 159 136 15 22 33 40 39 40 6 0 20 -16 30 -35 27 -50
+108 -123 164 -147 70 -31 181 -30 245 2 114 58 235 228 212 300 -12 37 -43 21
+-112 -56 -85 -95 -132 -124 -201 -124 -99 0 -174 55 -228 165 -31 65 -36 86
+-37 156 -2 74 0 82 22 100 13 10 31 19 40 19 30 0 98 52 120 90 26 46 27 110
+4 139 -32 39 -101 45 -423 34z"/>
+<path d="M6735 12634 c-224 -11 -592 -64 -632 -90 -39 -25 -55 -58 -43 -88 16
+-43 48 -51 124 -32 110 27 329 56 703 90 84 8 157 17 163 21 12 7 13 64 2 82
+-8 13 -194 23 -317 17z"/>
+<path d="M13000 12621 c-5 -11 -10 -34 -10 -51 0 -41 11 -44 215 -59 151 -11
+354 -35 515 -60 30 -4 84 -16 121 -26 83 -23 114 -16 136 30 16 34 16 36 -4
+63 -11 15 -35 32 -54 38 -95 32 -587 83 -806 84 -91 0 -103 -2 -113 -19z"/>
+<path d="M7445 12423 c-16 -2 -34 -8 -39 -13 -9 -9 73 -230 100 -268 18 -27
+54 -28 169 -7 131 24 355 65 440 81 233 44 379 67 560 89 257 32 255 31 255
+59 0 23 -1 23 -195 30 -108 4 -244 11 -303 16 -119 10 -940 21 -987 13z"/>
+<path d="M11885 12419 c-384 -13 -700 -30 -709 -39 -26 -26 49 -60 134 -60 76
+0 403 -47 565 -81 50 -11 216 -45 369 -76 l279 -56 18 22 c23 29 111 256 107
+277 -3 15 -31 17 -288 18 -157 1 -370 -1 -475 -5z"/>
+<path d="M7125 12243 c-11 -2 -83 -15 -160 -29 -151 -28 -382 -83 -479 -115
+-147 -49 -201 -92 -175 -142 26 -48 48 -48 198 3 120 41 220 65 546 136 115
+25 160 37 168 44 10 9 -12 92 -28 102 -11 8 -37 9 -70 1z"/>
+<path d="M12865 12200 c-14 -22 -25 -44 -25 -50 0 -15 34 -27 130 -45 139 -26
+367 -92 557 -159 94 -34 128 -34 149 0 25 38 9 73 -46 101 -50 25 -217 84
+-307 108 -95 26 -381 85 -408 85 -18 0 -32 -11 -50 -40z"/>
+<path d="M8830 12174 c-179 -33 -250 -44 -335 -54 -215 -26 -838 -138 -866
+-155 -17 -11 -9 -31 32 -91 128 -185 402 -382 709 -509 92 -39 290 -102 390
+-125 47 -11 103 -24 125 -30 147 -34 255 -54 415 -75 63 -9 146 -21 185 -26
+147 -21 502 -30 782 -20 379 14 551 33 888 101 332 67 648 187 854 324 223
+149 456 385 435 440 -3 9 -7 16 -9 16 -4 0 -220 43 -390 79 -77 15 -189 36
+-250 45 -60 9 -137 21 -171 27 -33 5 -80 9 -103 9 -23 0 -51 5 -61 10 -26 14
+-200 26 -200 13 0 -11 127 -33 230 -39 100 -7 112 -26 61 -106 -35 -55 -179
+-173 -361 -295 -165 -111 -204 -133 -340 -188 -393 -159 -700 -191 -1155 -121
+-306 48 -621 173 -856 343 -162 116 -342 307 -309 328 5 3 55 14 112 25 57 10
+132 26 168 35 36 9 77 19 93 22 15 3 27 12 27 19 0 16 0 16 -100 -2z"/>
+<path d="M7205 11816 c-185 -69 -439 -182 -492 -218 -34 -23 -43 -35 -43 -58
+0 -37 32 -60 81 -60 38 0 71 13 292 119 71 33 131 61 133 61 3 0 24 8 47 19
+23 10 75 31 116 47 40 15 75 34 78 41 5 13 -46 95 -62 99 -5 1 -73 -21 -150
+-50z"/>
+<path d="M12671 11835 c-33 -42 -28 -71 17 -94 46 -24 350 -158 479 -211 108
+-45 135 -48 163 -20 61 61 -3 106 -370 258 -239 99 -259 104 -289 67z"/>
+<path d="M7705 11470 c-35 -29 -316 -311 -446 -445 -382 -398 -790 -935 -1060
+-1395 -160 -273 -186 -319 -323 -590 -182 -360 -341 -728 -469 -1091 -114
+-321 -237 -704 -291 -904 -8 -33 -24 -91 -35 -130 -59 -214 -140 -562 -185
+-800 -52 -278 -63 -349 -116 -750 -5 -44 -17 -147 -25 -230 -24 -245 -19 -295
+30 -295 13 0 93 33 177 74 84 40 191 91 238 111 182 81 259 124 264 148 2 12
+12 78 21 147 9 69 21 150 25 180 5 30 17 100 26 155 57 356 117 595 241 965
+103 308 150 423 259 645 147 300 323 599 468 795 441 599 982 1073 1631 1427
+286 157 513 259 790 356 83 29 336 100 420 117 298 62 342 87 483 275 73 97
+100 158 112 245 15 120 8 355 -12 375 -4 4 -96 13 -205 20 -341 24 -476 41
+-773 101 -246 50 -510 124 -635 179 -262 115 -378 179 -502 276 -61 48 -87 57
+-108 39z"/>
+<path d="M12240 11408 c-142 -104 -226 -152 -420 -242 -100 -46 -301 -111
+-465 -151 -60 -14 -126 -30 -145 -35 -86 -22 -221 -45 -470 -79 -41 -6 -167
+-15 -280 -21 -280 -15 -289 -16 -296 -44 -3 -12 -4 -112 -2 -222 l3 -199 32
+-68 c64 -134 199 -279 294 -314 30 -12 131 -39 224 -61 264 -63 635 -182 804
+-259 403 -183 732 -373 1016 -586 451 -338 661 -545 938 -924 79 -108 277
+-413 277 -426 0 -2 41 -78 91 -168 126 -229 147 -275 258 -566 129 -341 176
+-480 265 -783 28 -99 65 -268 101 -465 9 -49 20 -110 25 -135 13 -65 37 -225
+56 -375 9 -71 19 -136 23 -144 4 -8 56 -31 116 -52 121 -43 210 -79 330 -135
+112 -51 218 -94 233 -94 27 0 31 48 17 227 -13 159 -26 280 -55 508 -16 124
+-60 373 -102 580 -11 55 -24 120 -29 145 -32 186 -144 648 -215 890 -13 47
+-32 110 -40 140 -9 30 -19 66 -24 80 -5 14 -27 86 -50 160 -23 74 -50 160 -61
+190 -11 30 -33 96 -50 145 -75 225 -214 577 -320 813 -423 938 -945 1714
+-1606 2387 -139 142 -363 345 -381 345 -4 0 -46 -28 -92 -62z"/>
+<path d="M10008 10053 c-45 -51 -169 -261 -318 -538 -23 -44 -46 -84 -50 -90
+-22 -28 -160 -317 -160 -334 0 -11 26 -55 58 -98 32 -43 84 -118 117 -168 201
+-309 365 -553 379 -564 8 -7 20 -11 25 -9 17 5 122 159 211 307 47 77 138 223
+203 322 68 106 117 192 117 206 0 14 -15 52 -34 86 -18 34 -55 103 -81 152
+-26 50 -71 131 -100 180 -29 50 -96 164 -149 255 -126 219 -183 310 -194 310
+-5 0 -16 -8 -24 -17z"/>
+<path d="M12953 8463 c2 -16 18 -95 35 -178 83 -403 104 -779 62 -1101 -21
+-165 -20 -159 -50 -289 -56 -238 -189 -556 -322 -769 -127 -203 -316 -429
+-604 -722 -162 -164 -188 -193 -183 -199 3 -2 70 2 150 10 181 18 318 19 484
+0 272 -29 413 -78 599 -209 44 -31 84 -56 89 -56 5 0 39 26 74 58 182 161 297
+234 442 279 77 25 101 27 231 27 98 0 170 -6 222 -17 42 -9 89 -17 103 -17 44
+0 44 -9 -1 315 -29 208 -42 276 -85 445 -11 47 -25 103 -30 125 -25 104 -120
+405 -194 615 -53 149 -180 448 -251 591 -132 263 -335 603 -448 749 -159 206
+-300 370 -318 370 -6 0 -8 -12 -5 -27z"/>
+<path d="M6963 8283 c-174 -182 -408 -510 -593 -833 -63 -111 -239 -479 -285
+-595 -25 -66 -52 -133 -59 -150 -63 -145 -172 -526 -220 -770 -58 -291 -65
+-331 -91 -526 -18 -131 -14 -153 24 -146 279 54 312 56 448 33 45 -8 103 -22
+128 -30 114 -39 279 -142 382 -240 39 -36 74 -66 79 -66 5 0 43 25 84 57 135
+102 311 167 523 195 108 13 511 17 645 5 75 -7 92 -6 92 5 0 8 -39 49 -87 93
+-130 118 -388 385 -465 482 -94 118 -267 380 -325 493 -115 221 -207 497 -252
+755 -29 162 -33 204 -38 390 -4 154 -2 231 11 335 22 171 53 352 86 485 15 62
+13 95 -6 95 -9 0 -46 -30 -81 -67z"/>
+<path d="M7872 7708 c-17 -17 -15 -141 4 -240 86 -453 341 -1291 610 -2002 67
+-177 104 -296 104 -335 0 -12 -12 -28 -27 -38 -62 -38 -166 -129 -192 -167
+-43 -64 -61 -129 -61 -225 0 -131 40 -237 98 -259 17 -7 210 -12 552 -14 451
+-2 528 -1 548 12 13 8 37 44 55 80 30 60 32 72 32 165 0 55 -3 119 -7 141 -6
+30 -4 43 5 45 6 2 196 2 421 -1 l410 -5 -3 -106 c-3 -139 23 -235 79 -291 l38
+-38 549 0 c546 0 549 0 572 21 54 50 88 199 70 308 -5 35 -23 89 -39 121 -32
+63 -120 165 -151 175 -44 14 -39 46 51 295 199 554 381 1123 490 1535 4 17 18
+66 30 110 66 244 92 368 115 547 17 136 13 168 -24 168 -50 0 -135 -218 -422
+-1070 -168 -502 -278 -836 -399 -1216 -63 -201 -64 -203 -122 -186 -180 52
+-204 55 -287 38 -133 -28 -273 -115 -390 -242 -34 -37 -64 -64 -67 -61 -4 3
+-6 86 -5 184 4 327 -22 992 -60 1578 -25 380 -35 475 -53 519 -17 40 -49 49
+-65 18 -29 -54 -54 -249 -86 -672 -9 -113 -20 -241 -25 -285 -5 -44 -17 -156
+-25 -250 -17 -180 -43 -410 -50 -435 -2 -8 -11 -73 -20 -145 -17 -134 -41
+-253 -55 -269 -20 -21 -50 85 -85 299 -9 55 -18 102 -20 105 -8 13 -40 215
+-70 435 -21 165 -55 493 -75 735 -23 272 -50 451 -72 477 -18 22 -47 14 -63
+-18 -34 -64 -48 -228 -70 -814 -8 -220 -20 -500 -26 -623 -5 -122 -11 -369
+-13 -548 -2 -179 -8 -330 -13 -335 -5 -5 -34 22 -72 67 -73 88 -190 178 -299
+231 l-77 38 -135 -2 c-74 -2 -151 -4 -170 -5 l-34 -3 -24 80 c-66 226 -484
+1494 -562 1705 -46 127 -79 220 -97 270 -8 25 -21 59 -28 75 -7 17 -37 88 -66
+158 -68 166 -93 199 -127 165z"/>
+</g>
+                    </svg>
+
+                    <svg id="actor-dino"  xmlns="http://www.w3.org/2000/svg" width="564.808541pt" height="450.708481pt" viewBox="0 0 564.808541 450.708481" preserveAspectRatio="xMidYMid meet" class="actor-svg" fill="#fff"> <!-- red-600 -->
+                        <g transform="translate(-100.000000,605.889908) scale(0.100000,-0.100000)">
+<path d="M2095 6053 c-11 -2 -67 -27 -126 -54 -103 -48 -109 -50 -285 -70
+-430 -48 -518 -88 -607 -273 -28 -58 -77 -193 -77 -211 0 -2 28 -6 63 -10 34
+-3 121 -18 192 -31 72 -14 170 -28 218 -31 83 -6 90 -8 110 -35 27 -37 38 -36
+30 3 -6 30 -5 32 23 27 16 -3 36 -8 44 -12 10 -4 19 1 25 16 13 29 182 92 290
+108 49 8 143 11 237 8 143 -4 181 -9 166 -23 -3 -3 -83 -10 -179 -15 -243 -13
+-267 -23 -348 -131 -49 -66 -121 -133 -192 -180 -177 -118 -219 -144 -282
+-176 -40 -20 -94 -43 -121 -53 -28 -9 -52 -22 -54 -28 -5 -17 70 -86 122 -112
+56 -27 60 -26 286 59 74 27 205 66 290 86 400 94 484 130 557 238 40 60 56
+135 51 248 -1 49 0 89 3 89 4 0 15 -17 25 -37 28 -56 26 -211 -3 -275 -44 -97
+-139 -173 -278 -222 -16 -6 -10 -11 33 -25 109 -37 198 -120 284 -266 19 -33
+78 -143 130 -245 133 -260 309 -542 434 -697 l74 -91 52 0 c51 -1 53 0 127 73
+l75 73 -74 78 c-96 103 -130 151 -130 183 0 76 83 283 129 326 27 24 26 15 -8
+-88 -16 -47 -35 -120 -41 -161 -12 -73 -12 -76 13 -118 14 -24 57 -74 94 -111
+l69 -68 74 61 c59 48 82 60 109 60 41 0 48 9 -79 -101 -47 -41 -126 -113 -176
+-161 l-91 -88 -84 -11 c-92 -12 -109 -23 -160 -96 -21 -30 -40 -45 -67 -52
+-65 -18 -79 -34 -91 -106 -14 -80 -5 -102 21 -51 13 26 33 44 61 57 81 36 104
+13 43 -44 -65 -62 -59 -177 14 -249 42 -42 71 -52 45 -15 -29 41 -37 93 -21
+132 8 19 19 35 24 35 5 0 17 -18 27 -40 21 -46 47 -66 101 -76 l39 -7 -37 34
+c-40 38 -54 75 -44 114 l7 26 33 -36 c53 -56 88 -44 45 15 -21 27 -21 32 -9
+92 7 35 17 73 21 85 9 25 125 96 302 185 127 63 273 156 320 203 23 24 26 33
+21 64 -12 65 -55 174 -115 295 -33 65 -57 121 -55 124 14 13 99 -90 154 -188
+43 -76 102 -233 102 -270 0 -22 -9 -40 -32 -61 -59 -54 -190 -136 -356 -222
+l-164 -85 34 -25 c97 -74 302 -188 453 -252 99 -42 305 -115 325 -115 4 0 5
+56 3 125 -7 143 6 239 47 366 59 179 177 368 303 485 67 62 104 84 76 45 -8
+-10 -35 -47 -60 -82 -221 -302 -324 -651 -279 -939 26 -161 169 -519 232 -577
+34 -32 232 -124 383 -177 72 -26 144 -53 161 -60 l30 -14 -8 -83 c-17 -178
+-37 -245 -96 -324 -25 -33 -55 -82 -68 -110 -27 -59 -49 -143 -40 -152 4 -4
+30 3 59 16 28 12 95 38 147 58 118 43 154 42 331 -16 69 -23 131 -41 137 -41
+25 0 -22 103 -79 172 -63 76 -73 132 -65 378 l6 206 -71 69 c-39 39 -113 122
+-165 186 -92 113 -97 118 -172 149 -42 19 -83 39 -90 45 -10 9 0 31 49 111
+175 277 229 432 247 699 8 117 8 119 21 80 33 -103 21 -349 -24 -475 -8 -24
+-13 -46 -10 -49 3 -3 45 -13 93 -23 323 -65 643 -228 842 -429 163 -165 243
+-335 243 -514 0 -172 -58 -301 -200 -443 -51 -50 -87 -92 -79 -92 7 0 45 16
+84 35 179 90 315 326 329 570 19 338 -162 717 -595 1250 -127 155 -474 505
+-625 630 -436 361 -895 589 -1315 656 -133 21 -299 15 -447 -16 -183 -39 -234
+-38 -317 3 -146 72 -239 219 -358 566 -89 260 -154 379 -272 498 -153 155
+-320 229 -512 227 -50 -1 -100 -3 -111 -6z m115 -130 c-20 -25 -21 -35 -15
+-119 7 -87 6 -92 -18 -119 -22 -26 -32 -30 -94 -33 -51 -3 -78 0 -101 12 -32
+16 -102 109 -102 134 0 12 56 42 78 42 4 0 16 -16 25 -35 25 -52 51 -47 71 13
+16 48 44 77 111 114 16 9 38 17 48 18 17 0 17 -2 -3 -27z m-862 -232 c4 -43
+-51 -101 -97 -101 -27 0 -31 3 -31 28 0 28 27 60 80 96 33 21 44 16 48 -23z"/>
+<path d="M1811 5413 c-46 -21 -52 -26 -47 -46 4 -12 10 -39 13 -61 l6 -38 -47
+3 c-45 4 -46 3 -46 -25 0 -25 -3 -27 -23 -22 -23 5 -24 4 -13 -29 6 -19 14
+-35 19 -35 4 0 31 21 59 48 36 34 63 72 94 137 24 49 42 90 41 91 -1 0 -26
+-10 -56 -23z"/>
+<path d="M1056 5388 c4 -18 11 -42 17 -52 8 -17 11 -15 23 20 8 21 14 41 14
+44 1 3 14 -23 29 -56 16 -34 33 -64 39 -68 12 -7 32 52 32 96 0 28 9 25 -120
+44 l-40 6 6 -34z"/>
+<path d="M1251 5330 c17 -33 36 -60 40 -60 9 0 11 5 14 50 1 14 5 32 9 41 5
+13 0 18 -25 23 -72 14 -73 12 -38 -54z"/>
+<path d="M1350 5347 c0 -21 48 -103 55 -95 2 2 5 27 7 55 4 45 1 52 -16 57
+-37 10 -46 6 -46 -17z"/>
+<path d="M1450 5351 c0 -6 14 -25 30 -43 l30 -33 -2 40 c-3 35 -6 40 -30 43
+-16 2 -28 -1 -28 -7z"/>
+<path d="M1560 5184 c0 -3 7 -16 16 -30 25 -38 5 -53 -42 -31 -20 10 -34 14
+-32 10 3 -4 11 -23 18 -40 16 -37 22 -40 40 -18 7 8 17 15 22 15 19 0 73 59
+63 69 -11 10 -85 32 -85 25z"/>
+<path d="M1390 5067 c0 -27 22 -77 34 -77 7 0 21 9 30 19 16 18 16 20 -11 38
+-47 33 -53 35 -53 20z"/>
+<path d="M1487 5051 c-3 -12 -1 -21 3 -21 15 0 23 21 12 32 -6 6 -11 2 -15
+-11z"/>
+<path d="M1320 4992 c0 -5 6 -17 14 -27 12 -17 16 -17 31 -5 15 12 15 15 -7
+26 -27 16 -38 17 -38 6z"/>
+<path d="M1286 4945 c-3 -9 0 -15 9 -15 16 0 20 16 6 24 -5 3 -11 -1 -15 -9z"/>
+<path d="M2886 3970 c-21 -54 -20 -94 5 -169 l20 -63 -34 -41 c-86 -105 -168
+-219 -191 -266 -14 -27 -38 -58 -52 -68 -68 -46 -85 -70 -85 -120 0 -27 -1
+-89 -2 -138 -2 -103 14 -143 73 -182 44 -31 55 -29 31 5 -24 32 -38 116 -22
+126 6 4 16 -4 23 -19 15 -34 63 -62 118 -71 l45 -7 -52 55 c-41 44 -53 64 -58
+102 -8 51 8 106 31 106 7 0 16 -9 19 -20 13 -41 33 -50 111 -50 41 0 74 3 74
+8 0 4 -25 22 -55 40 l-55 33 0 58 c0 31 -5 62 -12 69 -8 8 -8 15 1 26 22 26
+104 74 166 97 33 12 71 32 85 44 14 12 40 32 58 44 l32 23 -20 26 c-58 76
+-104 149 -160 257 -35 66 -66 124 -70 128 -4 5 -15 -10 -24 -33z"/>
+<path d="M3494 3268 c-26 -35 -66 -103 -90 -153 -56 -116 -145 -370 -146 -416
+-1 -75 91 -248 228 -430 l72 -96 -89 -119 c-91 -121 -152 -185 -200 -210 -23
+-11 -36 -11 -100 8 -87 24 -140 20 -211 -19 -28 -15 -66 -46 -85 -68 -34 -39
+-73 -105 -73 -123 0 -5 44 3 99 19 54 15 123 30 154 34 l56 7 -20 -52 c-11
+-29 -18 -55 -15 -57 2 -3 33 6 68 20 126 50 306 83 398 73 31 -4 107 -20 170
+-36 62 -17 116 -28 118 -25 8 8 -36 95 -70 138 -27 34 -30 43 -24 85 7 59 78
+204 157 322 46 69 59 95 54 113 -14 46 -126 293 -144 316 -19 24 -20 24 -75
+11 -39 -9 -60 -10 -67 -3 -7 7 44 32 158 78 92 37 208 88 256 113 85 44 197
+125 204 148 2 5 -23 18 -54 28 -158 49 -391 166 -576 290 -55 36 -101 66 -103
+66 -2 0 -25 -28 -50 -62z"/>
+<path d="M4845 1826 c-28 -12 -65 -40 -84 -61 -40 -46 -84 -137 -79 -164 3
+-17 9 -16 93 17 64 25 110 36 158 38 l69 3 44 72 c25 39 43 73 42 74 -2 1 -26
+11 -55 23 -67 28 -125 28 -188 -2z"/>
+</g>
+                    </svg>
+                </div>
+                
+                <!-- NOUVEAU: Sélecteur d'acteur -->
+                <div class="flex flex-wrap justify-center gap-4 mb-6">
+                    <span class="text-slate-300 font-semibold self-center">Acteur :</span>
+                    <button class="actor-select bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-lg" data-actor="none">Aucun</button>
+                    <button class="actor-select bg-sky-600 hover:bg-sky-500 text-white py-2 px-4 rounded-lg" data-actor="dino">Dino</button>
+                    <button class="actor-select bg-sky-600 hover:bg-sky-500 text-white py-2 px-4 rounded-lg" data-actor="cat">Bat-Cat</button>
+                    <button class="actor-select bg-sky-600 hover:bg-sky-500 text-white py-2 px-4 rounded-lg" data-actor="dragon">Dragon</button>
+                    
+                    <!-- NOUVEAU: Sélecteur de couleur -->
+                    <label for="actor-color" class="text-slate-300 font-semibold self-center ml-4">Couleur :</label>
+                    <input type="color" id="actor-color" value="#FFFFFF" class="bg-slate-700 rounded-lg w-10 h-10 border-2 border-slate-500 cursor-pointer">
+                </div>
+
+                <!-- Sélecteur de fond (Modifié) -->
+                <div class="flex flex-wrap justify-center gap-4">
+                    <span class="text-slate-300 font-semibold self-center">Fond :</span>
+                    <button class="fx-bg-select bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded-lg" data-bg="none">Fond Vert (Reset)</button>
+                    <!-- NOUVEAU: Champ de saisie pour l'URL -->
+                    <input type="text" id="bg-url-input" placeholder="Coller l'URL d'une image de fond" class="bg-slate-700 text-white px-3 py-2 rounded-lg flex-grow min-w-[200px]">
+                    <button id="load-bg-btn" class="bg-sky-600 hover:bg-sky-500 text-white py-2 px-4 rounded-lg">Charger Fond</button>
+                </div>
+            </div>
+            
+            <!-- Cartes des techniques FX -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-slate-900 p-6 rounded-lg shadow-lg border border-slate-700">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-2">Georges Méliès</h3>
+                    <p class="text-slate-300">Le père des FX ! On a vu ses techniques de "truc de substitution" (arrêt de caméra) qui ont créé la magie du cinéma, comme dans "Le Voyage dans la Lune".</p>
+                </div>
+                <div class="bg-slate-900 p-6 rounded-lg shadow-lg border border-slate-700">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-2">Motion Capture</h3>
+                    <p class="text-slate-300">On a pu tester et incarner un dragon ! Des capteurs suivent nos mouvements et les appliquent à un personnage 3D, comme Gollum ou les Na'vis d'Avatar.</p>
+                </div>
+                <div class="bg-slate-900 p-6 rounded-lg shadow-lg border border-slate-700">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-2">Bruitage</h3>
+                    <p class="text-slate-300">Incroyable de voir comment du papier journal froissé peut simuler un feu, ou comment des objets du quotidien créent les sons d'un film.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== SECTION 5: QUIZ ===== -->
+        <section id="quiz" class="main-content">
+            <h2 class="text-4xl font-bold text-center mb-8 text-sky-300">Testez vos Connaissances !</h2>
+            <div id="quiz-container" class="bg-slate-900 p-6 md:p-8 rounded-lg shadow-2xl border border-slate-700 max-w-2xl mx-auto">
+                <!-- Le contenu du Quiz sera injecté ici par JS -->
+                <button id="start-quiz-btn" class="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-4 px-6 rounded-lg text-xl transition-colors">
+                    Commencer le Quiz !
+                </button>
+            </div>
+            
+            <!-- Conteneur pour les résultats -->
+            <div id="quiz-results" class="hidden text-center bg-slate-900 p-8 rounded-lg shadow-2xl border border-slate-700 max-w-2xl mx-auto">
+                <h3 id="quiz-score" class="text-3xl font-bold text-white mb-4"></h3>
+                <p id="quiz-message" class="text-lg text-slate-300 mb-6"></p>
+                <button id="quiz-retry-btn" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-lg text-lg transition-colors">
+                    Recommencer
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===== PIED DE PAGE ===== -->
+    <footer class="text-center p-6 mt-12 text-slate-500">
+        <p>Projet NSI - Cité des Télécoms 2024</p>
+    </footer>
+
+    <!-- ===== SCRIPT PRINCIPAL ===== -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 1. GESTION DE LA NAVIGATION ---
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('.main-content');
+            let activeLink = document.querySelector('.nav-link[data-target="accueil"]');
+
+            function showSection(targetId) {
+                // Cacher toutes les sections
+                sections.forEach(section => {
+                    section.classList.remove('active');
+                });
+                
+                // Mettre à jour le style du lien actif
+                navLinks.forEach(link => {
+                    link.classList.remove('text-sky-300', 'bg-sky-800/50');
+                    link.classList.add('text-slate-300', 'hover:bg-slate-800');
+                });
+                activeLink = document.querySelector(`.nav-link[data-target="${targetId}"]`);
+                activeLink.classList.add('text-sky-300', 'bg-sky-800/50');
+                activeLink.classList.remove('text-slate-300', 'hover:bg-slate-800');
+
+                // Afficher la section cible
+                const targetSection = document.getElementById(targetId);
+                if (targetSection) {
+                    targetSection.classList.add('active');
+                }
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    const targetId = link.getAttribute('data-target');
+                    showSection(targetId);
+                });
+            });
+
+            // --- 2. LOGIQUE DU CODE MORSE (RÉALISTE) ---
+            const morseKey = document.getElementById('morse-key');
+            const morseOutput = document.getElementById('morse-output');
+            const morseTranslation = document.getElementById('morse-translation');
+            
+            // NOUVEAU: Boutons de contrôle Morse
+            const morseDeleteChar = document.getElementById('morse-delete-char');
+            const morseReset = document.getElementById('morse-reset');
+            
+            // NOUVEAU: Logique Défi Morse
+            const toggleMorseCodes = document.getElementById('toggle-morse-codes');
+            const morseCodes = document.getElementById('morse-codes');
+            const morseChallengeBtn = document.getElementById('morse-challenge-btn');
+            const morseChallengeWord = document.getElementById('morse-challenge-word');
+            const morseChallengeSuccess = document.getElementById('morse-challenge-success');
+            const morseChallenges = ["SOS", "NSI", "RADOME", "BELL", "TELSTAR", "MORSE"];
+            let currentChallenge = "";
+            let currentChallengeLetterIdx = 0; // NOUVEAU: Index pour le défi
+            
+            // NOUVEAU: Logique Ticker Tape
+            const tickerTape = document.getElementById('ticker-tape');
+            const tapeCtx = tickerTape.getContext('2d');
+            let tapeWidth = tickerTape.width;
+            let tapeHeight = tickerTape.height;
+            
+            // --- NOUVELLE LOGIQUE DE DÉFILEMENT (RTL) ---
+            let tapeSpeed = 30; // pixels par seconde
+            let tapeOffset = 0; // Décalage global de la bande (combien de pixels ont défilé à gauche)
+            // SUPPRIMÉ: absTapePos
+            let segments = []; // Stocke les segments: { abs_start_x: val, width: val }
+            let lastTapeTime = 0;
+            const PEN_X = tapeWidth - 10; // Position fixe du "stylet" sur le canvas (bord droit)
+            // isDrawing (booléen) est géré par isPressing
+            // --- FIN NOUVELLE LOGIQUE ---
+
+
+            function clearTape() {
+                tapeCtx.fillStyle = '#f1f5f9'; // slate-100
+                tapeCtx.fillRect(0, 0, tapeWidth, tapeHeight);
+            }
+
+            function drawTape() {
+                let now = performance.now();
+                if (lastTapeTime === 0) lastTapeTime = now;
+                let delta = (now - lastTapeTime) / 1000;
+                lastTapeTime = now;
+
+                // Le tape défile TOUJOURS vers la gauche,
+                // que l'on appuie ou non. (Demande "continu")
+                tapeOffset += tapeSpeed * delta;
+
+                clearTape();
+                tapeCtx.fillStyle = '#1e293b'; // slate-800
+                tapeCtx.beginPath();
+
+                // 1. Dessiner les segments passés
+                for (let seg of segments) {
+                    let x1_on_screen = seg.abs_start_x - tapeOffset; // Calculer la position à l'écran
+                    
+                    // Ne dessiner que ce qui est visible
+                    if (x1_on_screen + seg.width > 0 && x1_on_screen < tapeWidth) {
+                        tapeCtx.rect(x1_on_screen, tapeHeight / 2 - 2, seg.width, 4);
+                    }
+                }
+                tapeCtx.fill();
+
+                // 2. Dessiner le segment en cours (si on appuie)
+                if (isPressing) {
+                    let pressDurationMs = performance.now() - pressStartTime;
+                    let currentWidth = (pressDurationMs / 1000) * tapeSpeed;
+                    currentWidth = Math.max(currentWidth, 3); // Largeur min
+                    
+                    // Le stylet est fixe, donc on dessine "vers la gauche" depuis le stylet
+                    let screen_start_x = PEN_X - currentWidth;
+                    
+                    tapeCtx.beginPath();
+                    tapeCtx.rect(screen_start_x, tapeHeight / 2 - 2, currentWidth, 4);
+                    tapeCtx.fill();
+                }
+
+                // 3. Si le premier segment est sorti, le supprimer (nettoyage)
+                if (segments.length > 0 && (segments[0].abs_start_x - tapeOffset + segments[0].width) < 0) {
+                    segments.shift(); 
+                }
+                
+                requestAnimationFrame(drawTape);
+            }
+            clearTape(); // Dessin initial
+            
+
+            // Dictionnaire Morse (simplifié)
+            const MORSE_TO_LETTER = {
+                '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
+                '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
+                '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
+                '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
+                '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
+                '--..': 'Z', '.----': '1', '..---': '2', '...--': '3', '....-': '4',
+                '.....': '5', '-....': '6', '--...': '7', '---..': '8', '----.': '9',
+                '-----': '0', '.-.-.-': '.', '--..--': ',', '..--..': '?'
+            };
+
+            let osc; // Oscillateur Tone.js
+            let isPressing = false;
+            let pressStartTime = 0;
+            let currentSequence = ""; // La séquence de points/tirets pour la lettre actuelle
+            let currentWord = "";
+            let letterGapTimer; // Timer pour détecter la fin d'une lettre
+            let wordGapTimer; // Timer pour détecter la fin d'un mot
+            
+            // NOUVEAU: Flag pour la barre d'espace
+            let spacebarDown = false;
+
+            const DOT_TIME = 150; // ms. En dessous = point, au-dessus = tiret
+            const LETTER_GAP = 500; // ms d'inactivité pour finir une lettre
+            const WORD_GAP = 1200; // ms d'inactivité pour finir un mot (ajouter espace)
+
+            // Initialiser l'audio (doit être fait après une interaction utilisateur)
+            async function initAudio() {
+                if (Tone.context.state !== 'running') {
+                    await Tone.start();
+                }
+                if (!osc) {
+                    osc = new Tone.Oscillator(600, "sine").toDestination();
+                }
+            }
+
+            // Correction : Ajout de 'async' et 'await' pour s'assurer que initAudio() est terminé
+            async function handlePressStart() {
+                if (isPressing) return;
+                await initAudio(); // Assure que l'audio est prêt
+                isPressing = true;
+                pressStartTime = performance.now(); // Utilise performance.now()
+                lastTapeTime = performance.now(); // Réinitialise le timer de la bande
+                
+                // On n'a plus besoin de calculer la position ici
+                // Le stylet est "fixe" à droite
+
+                // Démarrer le son
+                osc.start();
+
+                // Effacer les timers de gap
+                clearTimeout(letterGapTimer);
+                clearTimeout(wordGapTimer);
+            }
+
+            function handlePressEnd() {
+                if (!isPressing) return;
+                isPressing = false;
+                const pressDuration = performance.now() - pressStartTime;
+                
+                // Arrêter le son
+                osc.stop();
+
+                // Finaliser le segment
+                let markWidth = (pressDuration / 1000) * tapeSpeed;
+                markWidth = Math.max(markWidth, 3); // Longueur minimale (pour un point)
+                
+                // Calculer la position absolue du segment qui VIENT de se terminer
+                // Le "stylet" (fin du segment) est à la position absolue : tapeOffset + PEN_X
+                let abs_end_x = tapeOffset + PEN_X;
+                let abs_start_x = abs_end_x - markWidth;
+
+                // Ajouter le segment à la liste, à sa position absolue
+                segments.push({ abs_start_x: abs_start_x, width: markWidth });
+                
+                // (Suppression de la mise à jour de absTapePos)
+
+                // Déterminer si c'est un point ou un tiret
+                const symbol = pressDuration < DOT_TIME ? '.' : '-';
+                currentSequence += symbol;
+                morseOutput.textContent = currentSequence; // Gardé pour la logique de trad
+
+                // Relancer les timers de gap
+                startGapTimers();
+            }
+            
+            function startGapTimers() {
+                // Timer pour la fin de la lettre
+                letterGapTimer = setTimeout(() => {
+                    if (currentSequence.length > 0) {
+                        translateSequence();
+                    }
+                }, LETTER_GAP);
+
+                // Timer pour la fin du mot (espace)
+                wordGapTimer = setTimeout(() => {
+                    if (currentWord.length > 0) {
+                        currentWord += " ";
+                        morseTranslation.textContent = currentWord;
+                        
+                        // NOUVEAU: Vérification du défi
+                        checkMorseChallenge();
+                    }
+                }, WORD_GAP);
+            }
+
+            function translateSequence() {
+                const letter = MORSE_TO_LETTER[currentSequence] || ''; // '?' si inconnu
+                if (letter) {
+                    currentWord += letter;
+                    morseTranslation.textContent = currentWord;
+                    
+                    // NOUVEAU: Feedback en temps réel pour le défi
+                    if (currentChallenge && currentChallengeLetterIdx < currentChallenge.length) {
+                        const targetLetter = currentChallenge[currentChallengeLetterIdx];
+                        const letterSpan = document.getElementById('challenge-letter-' + currentChallengeLetterIdx);
+                        if (letter === targetLetter) {
+                            letterSpan.style.color = '#22c55e'; // green-500
+                        } else {
+                            letterSpan.style.color = '#ef4444'; // red-500
+                        }
+                        currentChallengeLetterIdx++;
+                        
+                        // Vérifier si le défi est terminé
+                        if (currentChallengeLetterIdx === currentChallenge.length) {
+                            checkWinCondition();
+                        }
+                    }
+                }
+                
+                // Réinitialiser la séquence
+                currentSequence = "";
+                morseOutput.textContent = "";
+            }
+
+            // NOUVEAU: Fonction de vérification du défi
+            function checkMorseChallenge() {
+                if (!currentChallenge) return;
+                
+                let typedWord = currentWord.trim();
+                // Vérification finale (au cas où, mais la vérif principale est à la fin du mot)
+                if (typedWord === currentChallenge) {
+                    let allGreen = true;
+                    for (let i = 0; i < currentChallenge.length; i++) {
+                        const letterSpan = document.getElementById('challenge-letter-' + i);
+                        if (letterSpan.style.color !== 'rgb(34, 197, 94)') { // 'rgb(34, 197, 94)' est green-500
+                            allGreen = false;
+                            break;
+                        }
+                    }
+                    
+                    if (allGreen) {
+                        morseChallengeSuccess.style.display = 'block';
+                        startConfetti();
+                        currentChallenge = ""; // Défi terminé
+                        currentChallengeLetterIdx = 0;
+                    }
+                }
+            }
+            
+            // NOUVEAU: Vérification de victoire (appelée quand le mot est fini)
+            function checkWinCondition() {
+                if (!currentChallenge) return;
+                
+                let allGreen = true;
+                for (let i = 0; i < currentChallenge.length; i++) {
+                    const letterSpan = document.getElementById('challenge-letter-' + i);
+                    if (!letterSpan.style.color || letterSpan.style.color !== 'rgb(34, 197, 94)') { // 'rgb(34, 197, 94)' est green-500
+                        allGreen = false;
+                        break;
+                    }
+                }
+                
+                if (allGreen) {
+                    morseChallengeSuccess.style.display = 'block';
+                    startConfetti();
+                    currentChallenge = ""; // Défi terminé
+                    currentChallengeLetterIdx = 0;
+                }
+            }
+            
+            // NOUVEAU: Fonctions pour les confettis
+            function startConfetti() {
+                const container = document.getElementById('morse-challenge-word');
+                if (!container) return;
+                const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#fef08a'];
+                
+                for (let i = 0; i < 100; i++) {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                    confetti.style.animationDuration = Math.random() * 2 + 3 + 's';
+                    container.appendChild(confetti);
+                }
+                
+                // Nettoyer les confettis après l'animation
+                setTimeout(clearConfetti, 5000);
+            }
+            
+            function clearConfetti() {
+                const confettis = document.querySelectorAll('.confetti');
+                confettis.forEach(c => c.remove());
+            }
+
+
+            // function createSmokeLetter(letter) {
+            //     // Fonction "fumée" désactivée
+            // }
+
+            // Écouteurs d'événements pour la touche Morse
+            if (morseKey) {
+                morseKey.addEventListener('mousedown', handlePressStart);
+                morseKey.addEventListener('mouseup', handlePressEnd);
+                morseKey.addEventListener('mouseleave', handlePressEnd); // Si la souris sort
+                
+                morseKey.addEventListener('touchstart', (e) => {
+                    e.preventDefault(); // Empêche le "click" fantôme
+                    handlePressStart();
+                });
+                morseKey.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    handlePressEnd();
+                });
+            }
+            
+            // NOUVEAU: Écouteurs pour les boutons de contrôle Morse
+            if (morseDeleteChar) {
+                morseDeleteChar.addEventListener('click', () => {
+                    currentWord = currentWord.slice(0, -1);
+                    morseTranslation.textContent = currentWord;
+                });
+            }
+            if (morseReset) {
+                morseReset.addEventListener('click', () => {
+                    currentWord = "";
+                    currentSequence = "";
+                    morseTranslation.textContent = "";
+                    morseOutput.textContent = "";
+                    // Réinitialiser la bande
+                    segments = [];
+                    tapeOffset = 0;
+                    // SUPPRIMÉ: tapePosition = 10;
+                    clearTape();
+                    // Réinitialiser le défi
+                    morseChallengeSuccess.style.display = 'none';
+                    morseChallengeWord.textContent = '[Appuyez sur "Nouveau Défi"]';
+                    currentChallenge = "";
+                    currentChallengeLetterIdx = 0;
+                    clearConfetti();
+                });
+            }
+            
+            // NOUVEAU: Écouteurs pour le jeu Morse
+            if (toggleMorseCodes) {
+                toggleMorseCodes.addEventListener('click', () => {
+                    morseCodes.classList.toggle('hidden');
+                });
+            }
+            if (morseChallengeBtn) {
+                morseChallengeBtn.addEventListener('click', () => {
+                    morseReset.click(); // Réinitialise tout
+                    currentChallenge = morseChallenges[Math.floor(Math.random() * morseChallenges.length)];
+                    morseChallengeWord.innerHTML = ''; // Vide le conteneur
+                    currentChallengeLetterIdx = 0; // Réinitialise l'index
+                    
+                    // Crée les spans pour chaque lettre
+                    currentChallenge.split('').forEach((letter, index) => {
+                        const span = document.createElement('span');
+                        span.id = `challenge-letter-${index}`;
+                        span.textContent = letter;
+                        span.className = "text-amber-300"; // Couleur initiale
+                        morseChallengeWord.appendChild(span);
+                    });
+                });
+            }
+            
+            // NOUVEAU: Écouteurs pour la barre d'espace
+            document.addEventListener('keydown', (e) => {
+                // CORRECTION: Vérifie si on est en train d'écrire dans un input
+                const target = e.target;
+                if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                    return; // Ne pas activer le morse si on écrit du texte
+                }
+                
+                if (e.code === 'Space' && !isPressing && !spacebarDown) {
+                    e.preventDefault();
+                    spacebarDown = true;
+                    // Simule un 'mousedown'
+                    morseKey.dispatchEvent(new MouseEvent('mousedown'));
+                }
+            });
+            document.addEventListener('keyup', (e) => {
+                // CORRECTION: Pas besoin de vérifier ici, car le 'keydown' a déjà géré le focus
+                if (e.code === 'Space') {
+                    e.preventDefault(); // On peut garder le preventDefault ici pour être sûr
+                    
+                    if (spacebarDown) { // S'assure qu'on ne 'keyup' que si on a 'keydown'
+                        spacebarDown = false;
+                        // Simule un 'mouseup'
+                        morseKey.dispatchEvent(new MouseEvent('mouseup'));
+                    }
+                }
+            });
+            
+            // Démarrer la boucle d'animation de la bande
+            requestAnimationFrame(drawTape);
+
+
+            // --- NOUVEAU: 3. LOGIQUE CÂBLE SOUS-MARIN ---
+            const drawCableBtn = document.getElementById('draw-cable-btn');
+            const worldMap = document.getElementById('world-map');
+            const cablePath = document.getElementById('cable-path');
+            const cableInfo = document.getElementById('cable-info');
+            // NOUVEAU: Éléments ON AIR
+            const airStatusIndicator = document.getElementById('air-status-indicator');
+            const airStatusText = document.getElementById('air-status-text');
+            
+            if (drawCableBtn) {
+                drawCableBtn.addEventListener('click', () => {
+                    // Cacher l'info et reset le statut
+                    cableInfo.classList.add('hidden');
+                    airStatusIndicator.classList.remove('bg-green-500', 'animate-pulse');
+                    airStatusIndicator.classList.add('bg-red-500');
+                    airStatusText.classList.remove('text-green-400');
+                    airStatusText.classList.add('text-red-400');
+                    airStatusText.textContent = 'OFF AIR';
+
+                    // Remet l'animation à zéro
+                    worldMap.classList.remove('animate');
+                    // Force le reflow pour redémarrer l'animation
+                    void cablePath.offsetWidth; 
+                    worldMap.classList.add('animate');
+                    
+                    // Afficher l'info et passer "ON AIR" après un délai
+                    setTimeout(() => {
+                        airStatusIndicator.classList.remove('bg-red-500');
+                        airStatusIndicator.classList.add('bg-green-500', 'animate-pulse');
+                        airStatusText.classList.remove('text-red-400');
+                        airStatusText.classList.add('text-green-400');
+                        airStatusText.textContent = 'ON AIR';
+                        cableInfo.classList.remove('hidden');
+                    }, 2000); // 2 secondes
+                });
+            }
+
+            // --- NOUVEAU: 4. LOGIQUE FIBRE OPTIQUE (SNELL-DESCARTES) ---
+            const fiberCanvas = document.getElementById('fiber-canvas');
+            const angleSlider = document.getElementById('angle-slider');
+            const currentAngleLabel = document.getElementById('current-angle-label');
+            const criticalAngleLabel = document.getElementById('critical-angle-label');
+            
+            if (fiberCanvas) {
+                const fiberCtx = fiberCanvas.getContext('2d');
+                const fWidth = fiberCanvas.width;
+                const fHeight = fiberCanvas.height;
+                
+                // Paramètres physiques
+                const n1 = 1.47; // Indice de réfraction du Coeur
+                const n2 = 1.45; // Indice de réfraction de la Gaine
+                const criticalAngleRad = Math.asin(n2 / n1);
+                const criticalAngleDeg = (criticalAngleRad * 180 / Math.PI);
+                
+                const fiberWallSize = 40; // Taille de la "gaine"
+                const coreHeight = fHeight - (2 * fiberWallSize);
+                
+                criticalAngleLabel.textContent = (90 - criticalAngleDeg).toFixed(1); // Affiche l'angle par rapport à l'axe
+
+                function drawFiberSnell() {
+                    let angleDeg = parseFloat(angleSlider.value);
+                    let angleRad = angleDeg * Math.PI / 180;
+                    currentAngleLabel.textContent = angleDeg.toFixed(1);
+                    
+                    // Fond noir
+                    fiberCtx.fillStyle = '#020617'; // slate-950
+                    fiberCtx.fillRect(0, 0, fWidth, fHeight);
+                    
+                    // Gaine de la fibre (le "verre" autour)
+                    fiberCtx.fillStyle = '#1e3a8a'; // blue-900 (plus sombre)
+                    fiberCtx.fillRect(0, 0, fWidth, fiberWallSize);
+                    fiberCtx.fillRect(0, fHeight - fiberWallSize, fWidth, fiberWallSize);
+                    
+                    // Coeur de la fibre (où la lumière passe)
+                    fiberCtx.fillStyle = '#1e40af'; // blue-800 (plus clair)
+                    fiberCtx.fillRect(0, fiberWallSize, fWidth, fHeight - fiberWallSize * 2);
+
+                    // Dessin du rayon
+                    fiberCtx.strokeStyle = '#f87171'; // red-400
+                    fiberCtx.lineWidth = 3;
+                    fiberCtx.shadowBlur = 10;
+                    fiberCtx.shadowColor = '#f87171';
+                    
+                    fiberCtx.beginPath();
+                    
+                    let x = 0;
+                    let y = fHeight / 2;
+                    let currentAngle = angleRad; // Angle par rapport à l'horizontale
+                    
+                    fiberCtx.moveTo(x, y);
+
+                    for (let i = 0; i < 20; i++) { // Max 20 rebonds
+                        let distY, distToBoundary;
+                        
+                        if (currentAngle > 0) { // Va vers le bas
+                            distToBoundary = (fHeight - fiberWallSize) - y;
+                        } else { // Va vers le haut
+                            distToBoundary = y - fiberWallSize;
+                        }
+
+                        let distToX = Math.abs(distToBoundary / Math.tan(currentAngle));
+                        
+                        if (x + distToX > fWidth) { // Touche le bord du canvas
+                            distToX = fWidth - x;
+                            distY = distToX * Math.tan(currentAngle);
+                            x = fWidth;
+                            y += distY;
+                            fiberCtx.lineTo(x, y);
+                            break;
+                        }
+
+                        // Point d'impact
+                        x += distToX;
+                        y += (currentAngle > 0) ? distToBoundary : -distToBoundary;
+                        fiberCtx.lineTo(x, y);
+
+                        // Calcul de l'angle d'incidence (par rapport à la normale)
+                        let incidenceAngle = Math.PI / 2 - Math.abs(currentAngle);
+                        
+                        if (incidenceAngle >= criticalAngleRad) {
+                            // Réflexion totale
+                            currentAngle = -currentAngle; // Inverse l'angle
+                        } else {
+                            // Réfraction (fuite)
+                            fiberCtx.stroke(); // Dessine le rayon jusqu'ici
+                            
+                            // Calcul de l'angle de réfraction
+                            let refractionAngle = Math.asin((n1 / n2) * Math.sin(incidenceAngle));
+                            
+                            // Angle de sortie (par rapport à l'horizontale)
+                            let exitAngle = (currentAngle > 0) ? -(Math.PI / 2 - refractionAngle) : (Math.PI / 2 - refractionAngle);
+
+                            // Dessine le rayon qui fuit
+                            fiberCtx.beginPath();
+                            fiberCtx.moveTo(x, y);
+                            fiberCtx.strokeStyle = 'rgba(248, 113, 113, 0.5)'; // Rouge transparent (plus visible)
+                            fiberCtx.shadowBlur = 0;
+                            fiberCtx.lineTo(x + 50, y - 50 * Math.tan(exitAngle));
+                            fiberCtx.stroke();
+                            
+                            // NOUVEAU: Dessine le rayon réfléchi (faible)
+                            let reflectedAngle = -currentAngle;
+                            fiberCtx.beginPath();
+                            fiberCtx.moveTo(x, y);
+                            fiberCtx.strokeStyle = 'rgba(248, 113, 113, 0.2)'; // Rouge très transparent
+                            fiberCtx.shadowBlur = 0;
+                            
+                            // CORRECTION: Ne pas arrêter, continuer avec le rayon réfléchi faible
+                            currentAngle = reflectedAngle;
+                            fiberCtx.strokeStyle = 'rgba(248, 113, 113, 0.2)';
+                            fiberCtx.shadowBlur = 0;
+                            // La boucle continue avec ces nouveaux paramètres
+                        }
+                    }
+                    
+                    fiberCtx.stroke();
+                    fiberCtx.shadowBlur = 0;
+                }
+                
+                // Lancement de la boucle
+                angleSlider.addEventListener('input', drawFiberSnell);
+                drawFiberSnell(); // Dessin initial
+            }
+
+
+            // --- 5. LOGIQUE DU FOND VERT (anciennement 3) ---
+            const bgSelectors = document.querySelectorAll('.fx-bg-select'); // Gardé pour le bouton Reset
+            const greenScreenBox = document.getElementById('green-screen-box');
+            
+            // NOUVEAU: Éléments pour le fond personnalisé
+            const loadBgBtn = document.getElementById('load-bg-btn');
+            const bgUrlInput = document.getElementById('bg-url-input');
+            const resetBgBtn = document.querySelector('.fx-bg-select[data-bg="none"]');
+
+
+            if (loadBgBtn) {
+                loadBgBtn.addEventListener('click', () => {
+                    const bgImage = bgUrlInput.value;
+                    if (bgImage) {
+                        greenScreenBox.style.backgroundImage = `url(${bgImage})`;
+                        greenScreenBox.style.backgroundColor = 'transparent';
+                    }
+                });
+            }
+            
+            if (resetBgBtn) {
+                resetBgBtn.addEventListener('click', () => {
+                    greenScreenBox.style.backgroundImage = 'none';
+                    greenScreenBox.style.backgroundColor = '#22c55e'; // green-500
+                    bgUrlInput.value = '';
+                });
+            }
+            
+            // NOUVEAU: Logique de sélection d'acteur
+            const actorSelectors = document.querySelectorAll('.actor-select');
+            // const stickman = document.getElementById('actor-stickman'); // SUPPRIMÉ
+            const dragon = document.getElementById('actor-dragon');
+            // NOUVEAU: Acteurs
+            const dino = document.getElementById('actor-dino');
+            const cat = document.getElementById('actor-cat');
+            
+            const actorColorPicker = document.getElementById('actor-color');
+            
+            // Fonction pour réinitialiser la position d'un acteur
+            function resetActorPosition(actor) {
+                if (actor) {
+                    actor.style.top = '50%';
+                    actor.style.left = '50%';
+                    actor.style.transform = 'translate(-50%, -50%)';
+                }
+            }
+
+            if (actorSelectors) {
+                actorSelectors.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const actor = button.getAttribute('data-actor');
+                        // Cache tout
+                        // if(stickman) stickman.style.display = 'none'; // SUPPRIMÉ
+                        if(dragon) dragon.style.display = 'none';
+                        if(dino) dino.style.display = 'none';
+                        if(cat) cat.style.display = 'none';
+                        
+                        // Affiche le bon et réinitialise sa position
+                        if (actor === 'dino' && dino) {
+                            dino.style.display = 'block';
+                            resetActorPosition(dino);
+                        } else if (actor === 'cat' && cat) {
+                            cat.style.display = 'block';
+                            resetActorPosition(cat);
+                        } else if (actor === 'dragon' && dragon) {
+                            dragon.style.display = 'block';
+                            resetActorPosition(dragon);
+                        }
+                    });
+                });
+            }
+            
+            // NOUVEAU: Logique de changement de couleur
+            if (actorColorPicker) {
+                actorColorPicker.addEventListener('input', (e) => {
+                    const newColor = e.target.value;
+                    // if (stickman) { // SUPPRIMÉ
+                    //     stickman.style.fill = newColor;
+                    // }
+                    if (dino) {
+                        dino.style.fill = newColor;
+                        dino.style.stroke = (newColor === '#000000' ? '#FFFFFF' : '#000000');
+                    }
+                    if (cat) {
+                        cat.style.fill = newColor;
+                        cat.style.stroke = (newColor === '#000000' ? '#FFFFFF' : '#000000'); // Contraste pour le chat
+                    }
+                    if (dragon) {
+                        dragon.style.fill = newColor;
+                    }
+                });
+            }
+            
+            // NOUVEAU: Logique de Glisser-Déposer (Drag and Drop)
+            let isDragging = false;
+            let currentActor = null;
+            let dragOffsetX = 0;
+            let dragOffsetY = 0;
+
+            function makeDraggable(actor) {
+                if (!actor) return;
+                
+                function startDrag(e) {
+                    // NOUVEAU: Ne pas démarrer le drag sur un clic droit (pour le menu "coller")
+                    if (e.button === 2) { // 2 = clic droit
+                        return;
+                    }
+
+                    isDragging = true;
+                    currentActor = actor;
+                    const containerRect = greenScreenBox.getBoundingClientRect();
+                    
+                    let clientX, clientY;
+                    if (e.touches) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                    } else {
+                        clientX = e.clientX;
+                        clientY = e.clientY;
+                    }
+                    
+                    // Calcul de l'offset DANS l'acteur
+                    const actorRect = actor.getBoundingClientRect();
+                    dragOffsetX = clientX - actorRect.left;
+                    dragOffsetY = clientY - actorRect.top;
+                    
+                    // On enlève le transform pour se baser sur top/left
+                    actor.style.transform = 'none'; 
+                    
+                    document.addEventListener('mousemove', drag);
+                    document.addEventListener('mouseup', endDrag);
+                    document.addEventListener('touchmove', drag, { passive: false });
+                    document.addEventListener('touchend', endDrag);
+                }
+                
+                function drag(e) {
+                    if (!isDragging || !currentActor) return;
+                    
+                    // e.preventDefault(); // Empêche le défilement de la page sur mobile
+                    // CORRECTION: Appliquer preventDefault seulement pour le tactil
+                    if (e.touches) {
+                        e.preventDefault(); // Empêche le défilement SEULEMENT pour le tactil
+                    }
+                    
+                    let clientX, clientY;
+                    if (e.touches) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                    } else {
+                        clientX = e.clientX;
+                        clientY = e.clientY;
+                    }
+                    
+                    const containerRect = greenScreenBox.getBoundingClientRect();
+                    
+                    let x = clientX - containerRect.left - dragOffsetX;
+                    let y = clientY - containerRect.top - dragOffsetY;
+
+                    // Contraintes pour rester dans la boîte (approximatif)
+                    x = Math.max(0, Math.min(x, containerRect.width - currentActor.clientWidth));
+                    y = Math.max(0, Math.min(y, containerRect.height - currentActor.clientHeight));
+
+                    currentActor.style.left = x + 'px';
+                    currentActor.style.top = y + 'px';
+                }
+                
+                function endDrag() {
+                    isDragging = false;
+                    currentActor = null;
+                    document.removeEventListener('mousemove', drag);
+                    document.removeEventListener('mouseup', endDrag);
+                    document.removeEventListener('touchmove', drag);
+                    document.removeEventListener('touchend', endDrag);
+                }
+                
+                actor.addEventListener('mousedown', startDrag);
+                actor.addEventListener('touchstart', startDrag, { passive: false });
+            }
+            
+            // makeDraggable(stickman); // SUPPRIMÉ
+            makeDraggable(dino);
+            makeDraggable(cat);
+            makeDraggable(dragon);
+
+
+            // --- 6. LOGIQUE DU QUIZ (anciennement 4) ---
+            const quizData = [
+                {
+                    question: "À quelle date exacte ont eu lieu les premières transmissions TV via Telstar ?",
+                    answers: ["11 Juillet 1962", "4 Octobre 1957", "20 Juillet 1969"],
+                    correct: 0
+                },
+                {
+                    question: "Qui est considéré comme le 'père des effets spéciaux' grâce à ses 'trucages' ?",
+                    answers: ["Les frères Lumière", "Guglielmo Marconi", "Georges Méliès"],
+                    correct: 2
+                },
+                {
+                    question: "Quel est le nom de l'immense antenne-cornet protégée par le Radôme ?",
+                    answers: ["Telstar 1", "PB1", "Ariane 5"],
+                    correct: 1
+                },
+                {
+                    question: "Quel pionnier italien est célèbre pour ses travaux sur la transmission sans fil (TSF) ?",
+                    answers: ["Graham Bell", "Samuel Morse", "Guglielmo Marconi"],
+                    correct: 2
+                },
+                {
+                    question: "Quelle technique permet d'incruster un acteur sur un décor virtuel ?",
+                    answers: ["Le Bruitage", "Le Chroma Key (Fond Vert)", "La Motion Capture"],
+                    correct: 1
+                }
+            ];
+
+            const quizContainer = document.getElementById('quiz-container');
+            const startQuizBtn = document.getElementById('start-quiz-btn');
+            const quizResults = document.getElementById('quiz-results');
+            const quizScoreEl = document.getElementById('quiz-score');
+            const quizMessageEl = document.getElementById('quiz-message');
+            const quizRetryBtn = document.getElementById('quiz-retry-btn');
+
+            let currentQuestion = 0;
+            let score = 0;
+
+            function loadQuiz() {
+                quizContainer.innerHTML = ''; // Vider le conteneur
+
+                const q = quizData[currentQuestion];
+                
+                // CORRECTION: Ajout de la ligne manquante pour créer l'élément
+                const questionEl = document.createElement('h3');
+                
+            // --- 6. LOGIQUE DU QUIZ (anciennement 4) ---
+            // SUPPRESSION de la déclaration en double : const quizData = [
+                questionEl.className = "text-2xl font-semibold text-white mb-6 text-center";
+                questionEl.textContent = q.question;
+                quizContainer.appendChild(questionEl);
+
+                // Créer le conteneur pour les réponses
+                const answersEl = document.createElement('div');
+                answersEl.className = "flex flex-col gap-4";
+                
+                q.answers.forEach((answer, index) => {
+                    const answerBtn = document.createElement('button');
+                    answerBtn.className = "w-full bg-slate-800 hover:bg-sky-700 text-slate-200 font-semibold py-3 px-5 rounded-lg transition-colors text-left";
+                    answerBtn.textContent = answer;
+                    answerBtn.addEventListener('click', () => selectAnswer(index));
+                    answersEl.appendChild(answerBtn);
+                });
+
+                quizContainer.appendChild(answersEl);
+            }
+
+            function selectAnswer(selectedIndex) {
+                if (selectedIndex === quizData[currentQuestion].correct) {
+                    score++;
+                }
+
+                currentQuestion++;
+
+                if (currentQuestion < quizData.length) {
+                    loadQuiz();
+                } else {
+                    showResults();
+                }
+            }
+
+            function showResults() {
+                quizContainer.classList.add('hidden');
+                quizResults.classList.remove('hidden');
+
+                quizScoreEl.textContent = `Votre score : ${score} / ${quizData.length}`;
+                
+                let message = "";
+                if (score === quizData.length) {
+                    message = "Parfait ! Vous avez tout retenu de la visite !";
+                } else if (score >= quizData.length / 2) {
+                    message = "Excellent ! Vous avez bien suivi.";
+                } else {
+                    message = "Pas mal, mais une révision s'impose peut-être !";
+                }
+                quizMessageEl.textContent = message;
+            }
+            
+            function resetQuiz() {
+                currentQuestion = 0;
+                score = 0;
+                quizResults.classList.add('hidden');
+                quizContainer.classList.remove('hidden');
+                quizContainer.innerHTML = '';
+                quizContainer.appendChild(startQuizBtn);
+            }
+
+            if (startQuizBtn) {
+                startQuizBtn.addEventListener('click', () => {
+                    loadQuiz();
+                });
+            }
+            if (quizRetryBtn) {
+                quizRetryBtn.addEventListener('click', resetQuiz);
+            }
+
+        }); // Fin du DOMContentLoaded
+    </script>
+</body>
+</html>
