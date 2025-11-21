@@ -1,5 +1,7 @@
 # Projet NSI : Journal de Bord - Visite de la Cité des Télécoms
 
+▶️  ([Visiter !](https://pinkara.github.io/Journal-de-Bord-NSI/bzh.html)) ◀️
+    
 ## 1. Description
 
 Ce projet est un site web "one-page" (une seule page) créé dans le cadre d'un projet NSI. Il sert de journal de bord interactif suite à une visite à la Cité des Télécoms à Pleumeur-Bodou.
